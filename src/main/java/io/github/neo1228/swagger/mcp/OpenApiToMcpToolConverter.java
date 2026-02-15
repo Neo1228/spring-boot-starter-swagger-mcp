@@ -1,4 +1,4 @@
-package com.example.mcp.swagger;
+package io.github.neo1228.swagger.mcp;
 
 import io.modelcontextprotocol.spec.McpSchema;
 import io.swagger.v3.oas.models.media.ArraySchema;
@@ -239,3 +239,4 @@ public class OpenApiToMcpToolConverter {
         return schema;
     }
 }
+

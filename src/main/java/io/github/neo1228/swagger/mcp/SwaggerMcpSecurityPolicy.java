@@ -1,4 +1,4 @@
-package com.example.mcp.swagger;
+package io.github.neo1228.swagger.mcp;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -161,3 +161,4 @@ public class SwaggerMcpSecurityPolicy {
         return arguments == null ? Set.of() : arguments.keySet();
     }
 }
+

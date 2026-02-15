@@ -1,4 +1,4 @@
-package com.example.mcp.swagger;
+package io.github.neo1228.swagger.mcp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -7,6 +7,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpEntity;
@@ -72,9 +73,11 @@ public class SwaggerMcpServerAdapter {
         this.properties = properties;
         this.environment = environment;
         this.objectMapper = objectMapper;
+        ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
+                .withConnectTimeout(properties.getExecution().getConnectTimeout())
+                .withReadTimeout(properties.getExecution().getReadTimeout());
         this.restTemplate = restTemplateBuilder
-                .setConnectTimeout(properties.getExecution().getConnectTimeout())
-                .setReadTimeout(properties.getExecution().getReadTimeout())
+                .requestFactorySettings(settings)
                 .errorHandler(new DefaultResponseErrorHandler() {
                     @Override
                     public boolean hasError(HttpStatusCode statusCode) {
@@ -569,3 +572,4 @@ public class SwaggerMcpServerAdapter {
         return map;
     }
 }
+

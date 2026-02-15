@@ -1,4 +1,4 @@
-package com.example.mcp.swagger;
+package io.github.neo1228.swagger.mcp;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -90,3 +90,4 @@ public class SwaggerMcpToolSelector {
     public record ScoredTool(OpenApiOperationDescriptor operation, double score) {
     }
 }
+

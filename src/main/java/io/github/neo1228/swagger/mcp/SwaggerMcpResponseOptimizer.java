@@ -1,4 +1,4 @@
-package com.example.mcp.swagger;
+package io.github.neo1228.swagger.mcp;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -167,3 +167,4 @@ public class SwaggerMcpResponseOptimizer {
     public record OptimizationResult(String text, Object structuredContent) {
     }
 }
+

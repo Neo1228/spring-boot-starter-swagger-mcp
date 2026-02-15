@@ -1,4 +1,4 @@
-package com.example.mcp.swagger;
+package io.github.neo1228.swagger.mcp;
 
 import io.swagger.v3.oas.models.media.Schema;
 import org.springframework.http.HttpMethod;
@@ -33,3 +33,4 @@ enum OpenApiParameterLocation {
     HEADER,
     COOKIE
 }
+

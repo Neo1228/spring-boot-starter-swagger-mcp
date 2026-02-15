@@ -1,1 +1,2 @@
-com.example.mcp.swagger.SwaggerMcpAutoConfiguration
+io.github.neo1228.swagger.mcp.SwaggerMcpAutoConfiguration
+

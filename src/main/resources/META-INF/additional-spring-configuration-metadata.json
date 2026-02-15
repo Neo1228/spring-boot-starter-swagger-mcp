@@ -1,0 +1,87 @@
+{
+  "groups": [
+    {
+      "name": "swagger.mcp",
+      "type": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties",
+      "sourceType": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties"
+    },
+    {
+      "name": "swagger.mcp.execution",
+      "type": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties$Execution",
+      "sourceType": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties"
+    },
+    {
+      "name": "swagger.mcp.smart-context",
+      "type": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties$SmartContext",
+      "sourceType": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties"
+    },
+    {
+      "name": "swagger.mcp.response",
+      "type": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties$Response",
+      "sourceType": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties"
+    },
+    {
+      "name": "swagger.mcp.security",
+      "type": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties$Security",
+      "sourceType": "io.github.neo1228.swagger.mcp.SwaggerMcpProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "swagger.mcp.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable Swagger-to-MCP auto bridge."
+    },
+    {
+      "name": "swagger.mcp.api-docs-path",
+      "type": "java.lang.String",
+      "description": "Path to OpenAPI endpoint."
+    },
+    {
+      "name": "swagger.mcp.tool-name-prefix",
+      "type": "java.lang.String",
+      "description": "Prefix added to generated tool names."
+    },
+    {
+      "name": "swagger.mcp.execution.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL used for internal loopback HTTP execution."
+    },
+    {
+      "name": "swagger.mcp.smart-context.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable smart context tool selection."
+    },
+    {
+      "name": "swagger.mcp.smart-context.gateway-tool-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Expose meta discovery/invoke tools."
+    },
+    {
+      "name": "swagger.mcp.smart-context.gateway-only",
+      "type": "java.lang.Boolean",
+      "description": "Expose only gateway tools, not every API tool."
+    },
+    {
+      "name": "swagger.mcp.response.projection-argument-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Allow tool arguments to include JSONPath projection."
+    },
+    {
+      "name": "swagger.mcp.security.expose-risky-tools",
+      "type": "java.lang.Boolean",
+      "description": "Expose risky operations as tools."
+    },
+    {
+      "name": "swagger.mcp.security.require-confirmation-for-risky-operations",
+      "type": "java.lang.Boolean",
+      "description": "Require _confirm token for risky operations."
+    },
+    {
+      "name": "swagger.mcp.security.confirmation-token",
+      "type": "java.lang.String",
+      "description": "Expected token value for _confirm argument."
+    }
+  ]
+}
+

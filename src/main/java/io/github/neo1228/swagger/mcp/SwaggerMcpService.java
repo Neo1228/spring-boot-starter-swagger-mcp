@@ -1,4 +1,4 @@
-package com.example.mcp.swagger;
+package io.github.neo1228.swagger.mcp;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
@@ -13,6 +13,7 @@ import io.swagger.v3.core.util.Json31;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.env.Environment;
@@ -52,9 +53,11 @@ public class SwaggerMcpService implements ApplicationListener<ApplicationReadyEv
         this.securityPolicy = securityPolicy;
         this.properties = properties;
         this.environment = environment;
+        ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
+                .withConnectTimeout(properties.getExecution().getConnectTimeout())
+                .withReadTimeout(properties.getExecution().getReadTimeout());
         this.restTemplate = restTemplateBuilder
-                .setConnectTimeout(properties.getExecution().getConnectTimeout())
-                .setReadTimeout(properties.getExecution().getReadTimeout())
+                .requestFactorySettings(settings)
                 .build();
     }
 
@@ -288,3 +291,4 @@ public class SwaggerMcpService implements ApplicationListener<ApplicationReadyEv
         return trimmed;
     }
 }
+

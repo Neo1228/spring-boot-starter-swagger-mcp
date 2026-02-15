@@ -1,4 +1,4 @@
-package com.example.mcp.swagger;
+package io.github.neo1228.swagger.mcp;
 
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -131,3 +131,4 @@ class SwaggerMcpIntegrationTest {
     static class TestApp {
     }
 }
+

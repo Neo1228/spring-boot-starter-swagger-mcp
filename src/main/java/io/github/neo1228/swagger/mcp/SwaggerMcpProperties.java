@@ -1,4 +1,4 @@
-package com.example.mcp.swagger;
+package io.github.neo1228.swagger.mcp;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -362,3 +362,4 @@ public class SwaggerMcpProperties {
         }
     }
 }
+
