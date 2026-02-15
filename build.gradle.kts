@@ -7,8 +7,13 @@ plugins {
 }
 
 group = "io.github.neo1228"
-version = "0.1.0-SNAPSHOT"
+val defaultProjectVersion = "0.1.0-SNAPSHOT"
+version = providers.gradleProperty("projectVersion")
+    .orElse(providers.environmentVariable("PROJECT_VERSION"))
+    .orElse(defaultProjectVersion)
+    .get()
 description = "Spring Boot starter that auto-exposes SpringDoc OpenAPI operations as MCP tools"
+val isSnapshotVersion = version.toString().endsWith("SNAPSHOT")
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -108,7 +113,7 @@ publishing {
                 name = "OSSRH"
                 val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
                 val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-                url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+                url = if (isSnapshotVersion) snapshotsRepoUrl else releasesRepoUrl
                 credentials {
                     username = ossrhUsername
                     password = ossrhPassword
@@ -138,7 +143,7 @@ signing {
         .orNull
 
     setRequired {
-        !version.toString().endsWith("SNAPSHOT") &&
+        !isSnapshotVersion &&
                 gradle.taskGraph.allTasks.any { it.name.startsWith("publish") }
     }
 

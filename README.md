@@ -34,7 +34,7 @@ This project lets an MCP client (Claude Desktop, MCP Inspector, custom agents) c
 
 ```kotlin
 dependencies {
-    implementation("io.github.neo1228:spring-boot-starter-swagger-mcp:0.1.0-SNAPSHOT")
+    implementation("io.github.neo1228:spring-boot-starter-swagger-mcp:<latest-version>")
 }
 ```
 
@@ -44,7 +44,7 @@ dependencies {
 <dependency>
   <groupId>io.github.neo1228</groupId>
   <artifactId>spring-boot-starter-swagger-mcp</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>&lt;latest-version&gt;</version>
 </dependency>
 ```
 
@@ -163,7 +163,8 @@ Run:
 ./gradlew publish
 ```
 
+For tag-driven release process, see `RELEASING.md`.
+
 ## License
 
 Apache License 2.0. See `LICENSE`.
-

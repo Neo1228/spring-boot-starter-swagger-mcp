@@ -2,6 +2,10 @@ name: Publish
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (for example: 0.1.0). Leave empty to use build.gradle.kts default."
+        required: false
   push:
     tags:
       - "v*"
@@ -10,11 +14,28 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+            echo "project_version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "Resolved version from tag: ${VERSION}"
+          elif [[ -n "${{ github.event.inputs.version }}" ]]; then
+            echo "project_version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "Resolved version from workflow input: ${{ github.event.inputs.version }}"
+          else
+            echo "project_version=" >> "$GITHUB_OUTPUT"
+            echo "No release version override provided. Using build.gradle.kts default."
+          fi
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
@@ -26,6 +47,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
       - name: Publish artifacts
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
@@ -34,5 +58,16 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew publish --no-daemon
+        shell: bash
+        run: |
+          if [[ -n "${{ steps.version.outputs.project_version }}" ]]; then
+            ./gradlew -PprojectVersion="${{ steps.version.outputs.project_version }}" publish --no-daemon
+          else
+            ./gradlew publish --no-daemon
+          fi
 
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
