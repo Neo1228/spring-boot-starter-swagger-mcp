@@ -29,7 +29,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.3")
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
-    implementation("com.jayway.jsonpath:json-path:2.9.0")
+    implementation("com.jayway.jsonpath:json-path:2.10.0")
 
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
