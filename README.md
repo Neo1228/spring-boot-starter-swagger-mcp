@@ -1,5 +1,10 @@
 # spring-boot-starter-swagger-mcp
 
+[![CI](https://github.com/Neo1228/spring-boot-starter-swagger-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Neo1228/spring-boot-starter-swagger-mcp/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
+
 Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as MCP tools.
 
 ## What You Get
@@ -9,6 +14,16 @@ Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as M
 - Smart-context tools: `meta_discover_api_tools`, `meta_invoke_api_by_intent`
 - Response optimization with projection/summarization controls
 - Risk controls for dangerous operations (`_confirm`, blocked paths, role checks, audit logs)
+
+## Architecture
+
+```mermaid
+graph TD
+    User([User / LLM Client]) <--> MCP[MCP Client / Claude Desktop]
+    MCP <--> Bridge[Swagger MCP Bridge /starter/]
+    Bridge <--> Docs[SpringDoc OpenAPI /v3/api-docs]
+    Bridge <--> API[Your Spring Controller /hello]
+```
 
 ## Quick Start (New Empty Spring Boot Project)
 

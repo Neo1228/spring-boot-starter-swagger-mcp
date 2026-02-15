@@ -19,6 +19,22 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Build now verifies project version format for publish tasks
 - README and release guide expanded for external-consumer usage
 
+### Deprecated
+
+- None
+
+### Removed
+
+- None
+
+### Fixed
+
+- None
+
+### Security
+
+- None
+
 ## [0.1.0] - 2026-02-15
 
 ### Added
