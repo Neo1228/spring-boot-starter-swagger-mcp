@@ -1,62 +1,57 @@
 # spring-boot-starter-swagger-mcp
 
-Spring Boot starter that automatically converts SpringDoc OpenAPI operations into MCP tools.
+Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as MCP tools.
 
-This project lets an MCP client (Claude Desktop, MCP Inspector, custom agents) call your existing REST APIs without manual function/tool definitions.
+## Core Use Case: Start From an Empty Spring Boot Project
 
-## Features
+This is the primary goal of the project: connect a brand-new Spring API service to AI tooling with minimal setup.
 
-- Auto-scan OpenAPI (`/v3/api-docs`) on app startup
-- Convert each REST operation to an MCP tool
-- Smart context tools
-- `meta_discover_api_tools`: select relevant tools by intent
-- `meta_invoke_api_by_intent`: pick + execute the best tool
-- Response optimizer
-- JSONPath projection via `_projection`
-- Summarization/truncation controls for large payloads
-- Security controls
-- Risky operation detection
-- Confirmation token for dangerous actions
-- Optional role-based visibility/execution checks
-- Audit logging for tool execution
-- Spring Boot auto-configuration starter packaging
+### 1. Create a new Spring Boot app
 
-## Compatibility
+Generate a project with:
 
-- Java 17+
-- Spring Boot 3.5.x (tested)
-- Spring AI BOM 1.1.2
-- SpringDoc 2.8.3
+- Java 17
+- Spring Boot 3.5.x
+- Spring Web
 
-## Install
-
-### Gradle
+### 2. Add dependencies (`build.gradle.kts`)
 
 ```kotlin
+plugins {
+    id("org.springframework.boot") version "3.5.8"
+    id("io.spring.dependency-management") version "1.1.7"
+    java
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+}
+
 dependencies {
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.3")
     implementation("io.github.neo1228:spring-boot-starter-swagger-mcp:<latest-version>")
 }
 ```
 
-### Maven
+### 3. Add one controller
 
-```xml
-<dependency>
-  <groupId>io.github.neo1228</groupId>
-  <artifactId>spring-boot-starter-swagger-mcp</artifactId>
-  <version>&lt;latest-version&gt;</version>
-</dependency>
+```java
+@RestController
+public class HelloController {
+
+    @GetMapping("/hello")
+    public Map<String, Object> hello(@RequestParam(defaultValue = "world") String name) {
+        return Map.of("message", "Hello " + name);
+    }
+}
 ```
 
-## Quick Start
-
-1. Add the dependency.
-2. Ensure your app exposes SpringDoc OpenAPI (`/v3/api-docs`).
-3. Enable MCP server transport endpoint.
-4. Run the app.
-5. Connect MCP client to your endpoint (default: `/mcp`).
-
-Example `application.yml`:
+### 4. Add configuration (`application.yml`)
 
 ```yaml
 spring:
@@ -72,99 +67,53 @@ swagger:
     enabled: true
     api-docs-path: /v3/api-docs
     tool-name-prefix: api_
-    smart-context:
-      enabled: true
-      gateway-tool-enabled: true
-      gateway-only: false
-      default-top-k: 8
-      min-score: 0.08
-    response:
-      summarize-by-default: false
-      summary-threshold-chars: 4000
-      max-chars: 8000
-      projection-argument-enabled: true
-    security:
-      expose-risky-tools: true
-      require-confirmation-for-risky-operations: true
-      confirmation-token: CONFIRM
 ```
 
-## Runtime Behavior
+### 5. Run and verify
 
-- Startup:
-- Fetch OpenAPI JSON from `swagger.mcp.api-docs-path`
-- Convert operations to MCP tool schemas
-- Register tools to `McpSyncServer`
-- Tool execution:
-- Resolve path/query/header/body arguments
-- Internal HTTP loopback call to your own app
-- Optimize response (projection/summarize/truncate)
-- Return MCP result with text + structured payload
+1. Start app: `./gradlew bootRun`
+2. Check OpenAPI: `http://localhost:8080/v3/api-docs`
+3. Check MCP endpoint: `http://localhost:8080/mcp`
+4. Connect from an MCP client (Claude Desktop, MCP Inspector, etc.)
 
-## Built-in Meta Tools
+Generated tools are exposed automatically (for example, `api_hello`).
 
-- `<prefix>meta_discover_api_tools`
-- Input: `query`, optional `topK`
-- Returns top matching tools with score
-- `<prefix>meta_invoke_api_by_intent`
-- Input: `query`, optional `topK`, `arguments`, optional `_confirm`
-- Chooses best tool and executes it
+## Existing Project Integration
 
-Default prefix is `api_`.
+If you already have a Spring Boot API service:
 
-## Security Notes
+1. Add this starter dependency
+2. Add SpringDoc dependency
+3. Add `spring.ai.mcp.server.*` and `swagger.mcp.*` settings
+4. Restart app
 
-- Risky operations can require `_confirm` token.
-- You can block path patterns completely.
-- You can require any role for risky or protected paths.
-- For production, keep `swagger.mcp.security.confirmation-token` secret and rotate it.
+No manual per-endpoint tool definition is required.
 
-## Configuration Reference
+## Key Features
 
-Primary prefix: `swagger.mcp.*`
+- OpenAPI to MCP tool conversion
+- Smart-context gateway tools
+- `meta_discover_api_tools`
+- `meta_invoke_api_by_intent`
+- Response optimization (`_projection`, summarization, truncation)
+- Risk controls (`_confirm`, blocked path patterns, role checks, audit logs)
 
-- `enabled` (default: `true`)
-- `api-docs-path` (default: `/v3/api-docs`)
-- `tool-name-prefix` (default: `api_`)
-- `include-path-patterns`, `exclude-path-patterns`
-- `include-http-methods`
-- `execution.*`
-- `base-url`, `connect-timeout`, `read-timeout`
-- `copy-incoming-authorization-header`, `copy-incoming-cookie-header`
-- `default-headers`
-- `smart-context.*`
-- `enabled`, `gateway-tool-enabled`, `gateway-only`, `default-top-k`, `min-score`
-- `response.*`
-- `max-chars`, `summary-threshold-chars`, `max-depth`, `max-object-entries`
-- `max-array-items`, `truncate-strings-at`, `projection-argument-enabled`, `summarize-by-default`
-- `security.*`
-- `audit-log-enabled`, `expose-risky-tools`, `require-confirmation-for-risky-operations`
-- `confirmation-token`, `risky-http-methods`, `risky-path-patterns`
-- `blocked-path-patterns`, `role-protected-path-patterns`, `required-any-role`
+## Compatibility
+
+- Java 17+
+- Spring Boot 3.5.x
+- Spring AI BOM 1.1.2
+
+Spring Boot 4.x is not supported yet in this repository.
 
 ## Development
 
-```bash
-./gradlew test
-./gradlew build
-```
-
-## Publish
-
-This project supports publishing to OSSRH and GitHub Packages through environment variables:
-
-- `OSSRH_USERNAME`, `OSSRH_PASSWORD`
-- `SIGNING_KEY`, `SIGNING_PASSWORD`
-- `GITHUB_ACTOR`, `GITHUB_TOKEN`
-
-Run:
-
-```bash
-./gradlew publish
-```
-
-For tag-driven release process, see `RELEASING.md`.
+- Test: `./gradlew test`
+- Release process: `RELEASING.md`
+- Contribution guide: `CONTRIBUTING.md`
+- Security reporting: `SECURITY.md`
 
 ## License
 
-Apache License 2.0. See `LICENSE`.
+Apache License 2.0 (`LICENSE`)
+
