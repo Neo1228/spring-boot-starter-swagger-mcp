@@ -1,0 +1,12 @@
+spring-boot-starter-swagger-mcp
+Copyright 2026 Neo1228
+
+This product includes software developed by third-party projects:
+- Spring Boot
+- Spring AI
+- SpringDoc
+- Swagger Core
+- Java MCP SDK
+
+All third-party components remain under their respective licenses.
+
