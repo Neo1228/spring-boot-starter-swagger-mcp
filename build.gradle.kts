@@ -22,7 +22,7 @@ repositories {
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.3")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.1")
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
     implementation("com.jayway.jsonpath:json-path:2.9.0")
 
