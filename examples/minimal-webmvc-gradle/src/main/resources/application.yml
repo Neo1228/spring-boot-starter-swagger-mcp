@@ -1,0 +1,13 @@
+spring:
+  ai:
+    mcp:
+      server:
+        protocol: STREAMABLE_HTTP
+        streamable-http:
+          mcp-endpoint: /mcp
+
+swagger:
+  mcp:
+    enabled: true
+    api-docs-path: /v3/api-docs
+    tool-name-prefix: api_

@@ -6,6 +6,19 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- Versioning policy document (`VERSIONING.md`)
+- Minimal consumer sample project (`examples/minimal-webmvc-gradle`)
+
+### Changed
+
+- CI now tests Java 17 and Java 21 matrix
+- Publish workflow now validates SemVer format and changelog release entry
+- Publish workflow now runs tests before artifact publication
+- Build now verifies project version format for publish tasks
+- README and release guide expanded for external-consumer usage
+
 ## [0.1.0] - 2026-02-15
 
 ### Added

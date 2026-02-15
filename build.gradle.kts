@@ -7,13 +7,15 @@ plugins {
 }
 
 group = "io.github.neo1228"
-val defaultProjectVersion = "0.1.0-SNAPSHOT"
+val defaultProjectVersion = providers.gradleProperty("defaultProjectVersion")
+    .orElse("0.1.0-SNAPSHOT")
 version = providers.gradleProperty("projectVersion")
     .orElse(providers.environmentVariable("PROJECT_VERSION"))
     .orElse(defaultProjectVersion)
     .get()
 description = "Spring Boot starter that auto-exposes SpringDoc OpenAPI operations as MCP tools"
 val isSnapshotVersion = version.toString().endsWith("SNAPSHOT")
+val semverRegex = Regex("""^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$""")
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -48,6 +50,22 @@ tasks.withType<Test> {
 
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
+}
+
+tasks.register("verifyProjectVersion") {
+    doLast {
+        val currentVersion = project.version.toString()
+        if (!semverRegex.matches(currentVersion)) {
+            throw GradleException(
+                "Invalid project version '$currentVersion'. " +
+                        "Use semantic versioning format, e.g. 0.2.0 or 0.2.0-rc.1"
+            )
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("publish") }.configureEach {
+    dependsOn("verifyProjectVersion")
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {

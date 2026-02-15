@@ -14,9 +14,17 @@ cd spring-boot-starter-swagger-mcp
 ./gradlew test
 ```
 
+To validate dependency-consumer behavior locally:
+
+```bash
+./gradlew publishToMavenLocal
+cd examples/minimal-webmvc-gradle
+./gradlew bootRun
+```
+
 ## Pull Request Checklist
 
 1. `./gradlew test` passes.
 2. No generated artifacts or secrets are included.
 3. PR description explains scope, reason, and compatibility impact.
-
+4. `CHANGELOG.md` is updated for user-facing changes.
