@@ -25,6 +25,10 @@ graph TD
     Bridge <--> API[Your Spring Controller /hello]
 ```
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/neo1228-spring-boot-starter-swagger-mcp).
+
 ## Quick Start (New Empty Spring Boot Project)
 
 ### 1. Create a Spring Boot app
