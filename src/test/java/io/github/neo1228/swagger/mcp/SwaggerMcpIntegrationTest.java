@@ -166,6 +166,11 @@ class SwaggerMcpIntegrationTest {
         assertThat((Map<String, Object>) payload.get("safety"))
                 .containsEntry("validateBeforeExecute", "api_meta_validate_api_call")
                 .containsEntry("confirmationArgument", "_confirm");
+        assertThat((Map<String, Object>) payload.get("runtime"))
+                .containsEntry("bytecodeRelease", 17)
+                .containsEntry("virtualThreadsEnabled", true)
+                .containsKey("virtualThreadsAvailable")
+                .containsKey("httpDispatchThreadModel");
     }
 
     @Test

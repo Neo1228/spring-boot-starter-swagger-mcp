@@ -7,6 +7,7 @@ import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.DisposableBean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
@@ -37,11 +38,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class SwaggerMcpServerAdapter {
+public class SwaggerMcpServerAdapter implements DisposableBean {
 
     private static final Logger logger = LoggerFactory.getLogger(SwaggerMcpServerAdapter.class);
     private static final String ARGUMENTS_FIELD = "arguments";
@@ -67,6 +73,8 @@ public class SwaggerMcpServerAdapter {
     private final String planWorkflowToolName;
     private final String invokeWorkflowToolName;
     private final String invokeByIntentToolName;
+    private final boolean virtualThreadsAvailable;
+    private final ExecutorService virtualThreadExecutor;
 
     public SwaggerMcpServerAdapter(
             McpSyncServer mcpSyncServer,
@@ -108,6 +116,15 @@ public class SwaggerMcpServerAdapter {
         this.planWorkflowToolName = converter.toToolName("meta_plan_api_workflow", properties.getToolNamePrefix());
         this.invokeWorkflowToolName = converter.toToolName("meta_invoke_api_workflow", properties.getToolNamePrefix());
         this.invokeByIntentToolName = converter.toToolName("meta_invoke_api_by_intent", properties.getToolNamePrefix());
+        this.virtualThreadsAvailable = isVirtualThreadsAvailable();
+        this.virtualThreadExecutor = virtualThreadsAvailable ? newVirtualThreadPerTaskExecutor() : null;
+    }
+
+    @Override
+    public void destroy() {
+        if (virtualThreadExecutor != null) {
+            virtualThreadExecutor.shutdown();
+        }
     }
 
     public synchronized void registerOperations(List<OpenApiOperationDescriptor> operations) {
@@ -590,6 +607,13 @@ public class SwaggerMcpServerAdapter {
                 "maxChars", properties.getResponse().getMaxChars(),
                 "maxDepth", properties.getResponse().getMaxDepth()
         ));
+        structured.put("runtime", mapOf(
+                "javaVersion", Runtime.version().toString(),
+                "bytecodeRelease", 17,
+                "virtualThreadsEnabled", properties.getExecution().isVirtualThreadsEnabled(),
+                "virtualThreadsAvailable", virtualThreadsAvailable,
+                "httpDispatchThreadModel", httpDispatchThreadModel()
+        ));
         return successResult(structured);
     }
 
@@ -879,7 +903,41 @@ public class SwaggerMcpServerAdapter {
 
         Object body = resolveRequestBody(operation, arguments);
         HttpEntity<?> requestEntity = body == null ? new HttpEntity<>(headers) : new HttpEntity<>(body, headers);
-        return restTemplate.exchange(uriBuilder.build(true).toUri(), operation.httpMethod(), requestEntity, String.class);
+        return dispatchHttp(() ->
+                restTemplate.exchange(uriBuilder.build(true).toUri(), operation.httpMethod(), requestEntity, String.class));
+    }
+
+    private ResponseEntity<String> dispatchHttp(Callable<ResponseEntity<String>> dispatch) {
+        if (!properties.getExecution().isVirtualThreadsEnabled() || !virtualThreadsAvailable) {
+            try {
+                return dispatch.call();
+            }
+            catch (RuntimeException ex) {
+                throw ex;
+            }
+            catch (Exception ex) {
+                throw new IllegalStateException(ex);
+            }
+        }
+
+        try {
+            Future<ResponseEntity<String>> future = virtualThreadExecutor.submit(dispatch);
+            return future.get();
+        }
+        catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("HTTP dispatch interrupted", ex);
+        }
+        catch (ExecutionException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException(cause);
+        }
     }
 
     private void applyDefaultHeaders(HttpHeaders headers) {
@@ -1443,6 +1501,37 @@ public class SwaggerMcpServerAdapter {
             }
         }
         return copied;
+    }
+
+    private boolean isVirtualThreadsAvailable() {
+        try {
+            Executors.class.getMethod("newVirtualThreadPerTaskExecutor");
+            return true;
+        }
+        catch (NoSuchMethodException ex) {
+            return false;
+        }
+    }
+
+    private ExecutorService newVirtualThreadPerTaskExecutor() {
+        try {
+            return (ExecutorService) Executors.class
+                    .getMethod("newVirtualThreadPerTaskExecutor")
+                    .invoke(null);
+        }
+        catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Virtual threads are not available on this Java runtime", ex);
+        }
+    }
+
+    private String httpDispatchThreadModel() {
+        if (properties.getExecution().isVirtualThreadsEnabled() && virtualThreadsAvailable) {
+            return "virtual";
+        }
+        if (properties.getExecution().isVirtualThreadsEnabled()) {
+            return "platform-fallback";
+        }
+        return "platform";
     }
 
     private McpSchema.CallToolResult successResult(Object structuredContent) {

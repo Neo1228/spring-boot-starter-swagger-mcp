@@ -104,6 +104,7 @@ public class SwaggerMcpProperties {
         private Duration readTimeout = Duration.ofSeconds(30);
         private boolean copyIncomingAuthorizationHeader = true;
         private boolean copyIncomingCookieHeader = false;
+        private boolean virtualThreadsEnabled = true;
         private Set<String> allowedArgumentHeaders = new LinkedHashSet<>();
         private Set<String> blockedArgumentHeaders = new LinkedHashSet<>(Set.of(
                 "host",
@@ -155,6 +156,14 @@ public class SwaggerMcpProperties {
 
         public void setCopyIncomingCookieHeader(boolean copyIncomingCookieHeader) {
             this.copyIncomingCookieHeader = copyIncomingCookieHeader;
+        }
+
+        public boolean isVirtualThreadsEnabled() {
+            return virtualThreadsEnabled;
+        }
+
+        public void setVirtualThreadsEnabled(boolean virtualThreadsEnabled) {
+            this.virtualThreadsEnabled = virtualThreadsEnabled;
         }
 
         public Set<String> getAllowedArgumentHeaders() {

@@ -17,6 +17,8 @@ Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as M
 - Rich MCP input schemas from OpenAPI constraints (required fields, enum, numeric/string/array/object limits, examples, deprecation hints)
 - Response optimization with projection/summarization controls
 - Execution guardrails: required argument validation, unresolved path-template protection, and safe `_headers` filtering
+- Java 17 bytecode with CI coverage on Java 17, 21, and 25
+- Optional virtual-thread HTTP dispatch on Java 21+ runtimes, with automatic platform-thread fallback on Java 17
 - Risk controls for dangerous operations (`_confirm`, blocked paths, role checks, audit logs)
 
 ## Architecture
@@ -229,6 +231,7 @@ If the artifact is not published to a remote registry yet:
 - `swagger.mcp.api-docs-path`: OpenAPI docs path (default `/v3/api-docs`)
 - `swagger.mcp.tool-name-prefix`: tool name prefix (default `api_`)
 - `swagger.mcp.smart-context.gateway-only`: expose only meta tools
+- `swagger.mcp.execution.virtual-threads-enabled`: run outbound API dispatch through virtual threads when the current runtime supports them (default `true`; safely falls back on Java 17)
 - `swagger.mcp.execution.allowed-argument-headers`: optional allowlist for dynamic `_headers` passed by MCP clients
 - `swagger.mcp.execution.blocked-argument-headers`: denylist for dynamic `_headers`; defaults block hop-by-hop/transport-sensitive headers like `Host`, `Content-Length`, `Connection`, and `Transfer-Encoding`
 - `swagger.mcp.security.require-confirmation-for-risky-operations`: require `_confirm` token for risky methods
@@ -239,9 +242,9 @@ For risky HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`), default policy requir
 
 | Starter | Java | Spring Boot | springdoc-openapi | Spring AI BOM |
 |---|---|---|---|---|
-| 0.1.x | 17+ | 3.5.x | 2.8.17 | 1.1.5 |
+| 0.1.x | 17, 21, 25 tested; Java 17 bytecode | 3.5.x | 2.8.17 | 1.1.5 |
 
-Spring Boot 4.x is intentionally not supported in the 0.1.x line. Stay on Spring Boot 3.5.x with springdoc-openapi 2.8.x unless this repository cuts a new major/minor compatibility line.
+Spring Boot 4.x is intentionally not supported in the 0.1.x line. Stay on Spring Boot 3.5.x with springdoc-openapi 2.8.x unless this repository cuts a new major/minor compatibility line. The build uses `--release 17`, so the artifact remains consumable on Java 17 while CI verifies newer runtimes including Java 25.
 
 ## Example Consumer Project
 
