@@ -15,11 +15,11 @@ updates:
       # The 0.1.x line is pinned to Spring Boot 3.5.x / springdoc 2.8.x.
       # Major-line moves need a deliberate compatibility branch and migration tests.
       - dependency-name: "org.springframework.boot"
-        versions: ["4.x"]
+        versions: [">= 4.0.0"]
       - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-api"
-        versions: ["3.x"]
+        versions: [">= 3.0.0"]
       - dependency-name: "org.springframework.ai:spring-ai-bom"
-        versions: ["2.x"]
+        versions: [">= 2.0.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
