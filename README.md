@@ -12,8 +12,8 @@ Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as M
 
 - Auto-discovery of OpenAPI operations from your running Spring app
 - Auto-registration of MCP tools for discovered API operations
-- Smart-context tools: `meta_discover_api_tools`, `meta_describe_api_tool`, `meta_list_api_groups`, `meta_plan_api_workflow`, `meta_invoke_api_workflow`, `meta_invoke_api_by_intent`
-- API catalog and workflow layer that lets MCP clients explore grouped capabilities, plan multi-step calls, and execute them with dry-run safety
+- Smart-context tools: `meta_get_api_capabilities`, `meta_validate_api_call`, `meta_discover_api_tools`, `meta_describe_api_tool`, `meta_list_api_groups`, `meta_plan_api_workflow`, `meta_invoke_api_workflow`, `meta_invoke_api_by_intent`
+- API gateway, catalog, and workflow layer that lets MCP clients inspect capabilities, validate calls, explore grouped APIs, plan multi-step calls, and execute them with dry-run safety
 - Rich MCP input schemas from OpenAPI constraints (required fields, enum, numeric/string/array/object limits, examples, deprecation hints)
 - Response optimization with projection/summarization controls
 - Execution guardrails: required argument validation, unresolved path-template protection, and safe `_headers` filtering
@@ -147,23 +147,44 @@ Generated tool names follow `<tool-name-prefix><operation-id>` (example: `api_ge
 
 This starter exposes direct API tools and a meta-tool layer so general MCP clients can work with large APIs without guessing tool names upfront:
 
-1. `meta_list_api_groups` summarizes the exposed API catalog by OpenAPI tag/group.
-2. `meta_discover_api_tools` finds relevant operations for a natural-language request.
-3. `meta_describe_api_tool` returns the selected tool's method/path, parameters, required arguments, request body schema, risk flags, and full MCP input schema.
-4. `meta_plan_api_workflow` turns a workflow goal into a deterministic candidate step plan with contracts and risk flags.
-5. `meta_invoke_api_workflow` dry-runs or executes multiple generated API tools sequentially.
-6. `meta_invoke_api_by_intent` can select and invoke the best matching operation when the client already has enough arguments.
+1. `meta_get_api_capabilities` returns API catalog stats, available gateway tools, orchestration features, safety policy, and response controls.
+2. `meta_list_api_groups` summarizes the exposed API catalog by OpenAPI tag/group.
+3. `meta_discover_api_tools` finds relevant operations for a natural-language request.
+4. `meta_describe_api_tool` returns the selected tool's method/path, parameters, required arguments, request body schema, risk flags, and full MCP input schema.
+5. `meta_validate_api_call` validates one generated API tool call without dispatching HTTP, including required arguments, risky-operation confirmation, and dispatch preview.
+6. `meta_plan_api_workflow` turns a workflow goal into a deterministic candidate step plan with contracts and risk flags.
+7. `meta_invoke_api_workflow` dry-runs or executes multiple generated API tools sequentially.
+8. `meta_invoke_api_by_intent` can select and invoke the best matching operation when the client already has enough arguments.
 
-The configured `tool-name-prefix` is still applied, so the default generated names are `api_meta_list_api_groups`, `api_meta_discover_api_tools`, `api_meta_describe_api_tool`, `api_meta_plan_api_workflow`, `api_meta_invoke_api_workflow`, and `api_meta_invoke_api_by_intent`.
+The configured `tool-name-prefix` is still applied, so the default generated names are `api_meta_get_api_capabilities`, `api_meta_validate_api_call`, `api_meta_list_api_groups`, `api_meta_discover_api_tools`, `api_meta_describe_api_tool`, `api_meta_plan_api_workflow`, `api_meta_invoke_api_workflow`, and `api_meta_invoke_api_by_intent`.
+
+Recommended client loop:
+
+1. Call `api_meta_get_api_capabilities` once to learn the gateway features and safety policy.
+2. Use `api_meta_discover_api_tools` or `api_meta_list_api_groups` to find candidate operations.
+3. Use `api_meta_describe_api_tool` for exact argument schema.
+4. Use `api_meta_validate_api_call` before risky or generated calls.
+5. For multi-step work, call `api_meta_plan_api_workflow`, then `api_meta_invoke_api_workflow` with `dryRun=true`, then execute with `dryRun=false` only after validation is clean.
 
 Workflow execution is intentionally safe by default:
 
-- `meta_invoke_api_workflow` defaults to `dryRun=true`, so clients can validate tool names, arguments, required fields, and risk flags before dispatching HTTP.
+- `meta_validate_api_call` and `meta_invoke_api_workflow` dry-runs validate tool names, arguments, required fields, dispatch paths, and risk flags before dispatching HTTP.
 - A workflow step has `{ "id": "...", "toolName": "...", "arguments": { ... } }`.
 - Later steps can read previous structured results with JSONPath interpolation: `${create:$.order.id}`.
 - If the whole argument value is a template, the resolved raw value is passed through. If a template is embedded in a longer string, the value is stringified.
 - Recursive meta-tool orchestration is blocked; workflow steps can invoke generated API operation tools only.
 - Risky HTTP methods still require the configured `_confirm` token even inside a workflow.
+
+Example validation payload:
+
+```json
+{
+  "toolName": "api_getorder",
+  "arguments": {
+    "orderId": "order-1"
+  }
+}
+```
 
 Example workflow payload:
 

@@ -69,6 +69,8 @@ class SwaggerMcpIntegrationTest {
                     "api_createorder",
                     "api_meta_discover_api_tools",
                     "api_meta_describe_api_tool",
+                    "api_meta_get_api_capabilities",
+                    "api_meta_validate_api_call",
                     "api_meta_list_api_groups",
                     "api_meta_plan_api_workflow",
                     "api_meta_invoke_api_workflow",
@@ -140,6 +142,79 @@ class SwaggerMcpIntegrationTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void exposesGatewayCapabilitiesForMcpClients() {
+        await().atMost(15, SECONDS).untilAsserted(() ->
+                assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList())
+                        .contains("api_meta_get_api_capabilities", "api_meta_validate_api_call", "api_gethello"));
+
+        McpSchema.CallToolResult result = adapter.getApiCapabilities(Map.of("maxGroups", 3, "maxToolsPerGroup", 2));
+
+        assertThat(result.isError()).isFalse();
+        Map<String, Object> payload = (Map<String, Object>) result.structuredContent();
+        assertThat((List<String>) payload.get("gatewayTools"))
+                .contains(
+                        "api_meta_get_api_capabilities",
+                        "api_meta_validate_api_call",
+                        "api_meta_plan_api_workflow",
+                        "api_meta_invoke_api_workflow"
+                );
+        assertThat((Map<String, Object>) payload.get("catalog"))
+                .containsKeys("operationCount", "groupCount", "readOnlyCount", "riskyCount", "groups");
+        assertThat((Map<String, Object>) payload.get("orchestration"))
+                .containsEntry("recursiveMetaToolsAllowed", false)
+                .containsEntry("defaultDryRun", true);
+        assertThat((Map<String, Object>) payload.get("safety"))
+                .containsEntry("validateBeforeExecute", "api_meta_validate_api_call")
+                .containsEntry("confirmationArgument", "_confirm");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void validatesApiCallsWithoutDispatchingHttp() {
+        await().atMost(15, SECONDS).untilAsserted(() ->
+                assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList())
+                        .contains("api_meta_validate_api_call", "api_getorder", "api_createorder"));
+
+        McpSchema.CallToolResult missingArgument = adapter.validateApiCall(Map.of(
+                "toolName", "api_getorder",
+                "arguments", Map.of()
+        ));
+        assertThat(missingArgument.isError()).isFalse();
+        Map<String, Object> missingPayload = (Map<String, Object>) missingArgument.structuredContent();
+        assertThat(missingPayload)
+                .containsEntry("toolName", "api_getorder")
+                .containsEntry("valid", false)
+                .containsEntry("wouldExecute", false);
+        assertThat((List<String>) missingPayload.get("errors"))
+                .anySatisfy(error -> assertThat(error).contains("path parameter: orderId"));
+
+        McpSchema.CallToolResult riskyWithoutConfirmation = adapter.validateApiCall(Map.of(
+                "toolName", "api_createorder",
+                "arguments", Map.of("body", Map.of("id", "order-2"))
+        ));
+        assertThat(riskyWithoutConfirmation.isError()).isFalse();
+        Map<String, Object> riskyPayload = (Map<String, Object>) riskyWithoutConfirmation.structuredContent();
+        assertThat(riskyPayload)
+                .containsEntry("risky", true)
+                .containsEntry("valid", false);
+        assertThat((List<String>) riskyPayload.get("errors"))
+                .anySatisfy(error -> assertThat(error).contains("Confirmation is required"));
+
+        McpSchema.CallToolResult valid = adapter.validateApiCall(Map.of(
+                "toolName", "api_getorder",
+                "arguments", Map.of("orderId", "order-2")
+        ));
+        assertThat(valid.isError()).isFalse();
+        Map<String, Object> validPayload = (Map<String, Object>) valid.structuredContent();
+        assertThat(validPayload)
+                .containsEntry("valid", true)
+                .containsEntry("wouldExecute", true);
+        assertThat((Map<String, Object>) validPayload.get("dispatchPreview"))
+                .containsEntry("resolvedPath", "/orders/order-2");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void plansApiWorkflowFromCatalog() {
         await().atMost(15, SECONDS).untilAsserted(() ->
                 assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList())
@@ -185,6 +260,42 @@ class SwaggerMcpIntegrationTest {
                 .containsEntry("toolName", "api_gethello")
                 .containsEntry("wouldExecute", true);
         assertThat((Map<String, Object>) steps.get(0).get("arguments")).containsEntry("name", "Neo");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void dryRunRejectsUnavailableWorkflowReferences() {
+        await().atMost(15, SECONDS).untilAsserted(() ->
+                assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList())
+                        .contains("api_gethello", "api_getorder"));
+
+        McpSchema.CallToolResult result = adapter.invokeApiWorkflow(Map.of(
+                "dryRun", true,
+                "steps", List.of(
+                        Map.of(
+                                "id", "hello",
+                                "toolName", "api_gethello",
+                                "arguments", Map.of("name", "Neo")
+                        ),
+                        Map.of(
+                                "id", "read",
+                                "toolName", "api_getorder",
+                                "arguments", Map.of("orderId", "${missing:$.order.id}")
+                        )
+                )
+        ));
+
+        assertThat(result.isError()).isTrue();
+        Map<String, Object> payload = (Map<String, Object>) result.structuredContent();
+        assertThat(payload).containsEntry("success", false);
+        List<Map<String, Object>> steps = (List<Map<String, Object>>) payload.get("steps");
+        assertThat(steps.get(1))
+                .containsEntry("valid", false)
+                .containsEntry("wouldExecute", false);
+        assertThat((List<String>) steps.get(1).get("errors"))
+                .anySatisfy(error -> assertThat(error).contains("Unknown or unavailable workflow step reference: missing"));
+        assertThat((List<Map<String, Object>>) steps.get(1).get("workflowReferences"))
+                .anySatisfy(reference -> assertThat(reference).containsEntry("stepId", "missing"));
     }
 
     @Test

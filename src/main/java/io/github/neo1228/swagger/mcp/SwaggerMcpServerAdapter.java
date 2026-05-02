@@ -61,6 +61,8 @@ public class SwaggerMcpServerAdapter {
     private final Set<String> registeredToolNames = ConcurrentHashMap.newKeySet();
     private final String discoverToolName;
     private final String describeToolName;
+    private final String capabilitiesToolName;
+    private final String validateToolName;
     private final String listGroupsToolName;
     private final String planWorkflowToolName;
     private final String invokeWorkflowToolName;
@@ -100,6 +102,8 @@ public class SwaggerMcpServerAdapter {
                 .build();
         this.discoverToolName = converter.toToolName("meta_discover_api_tools", properties.getToolNamePrefix());
         this.describeToolName = converter.toToolName("meta_describe_api_tool", properties.getToolNamePrefix());
+        this.capabilitiesToolName = converter.toToolName("meta_get_api_capabilities", properties.getToolNamePrefix());
+        this.validateToolName = converter.toToolName("meta_validate_api_call", properties.getToolNamePrefix());
         this.listGroupsToolName = converter.toToolName("meta_list_api_groups", properties.getToolNamePrefix());
         this.planWorkflowToolName = converter.toToolName("meta_plan_api_workflow", properties.getToolNamePrefix());
         this.invokeWorkflowToolName = converter.toToolName("meta_invoke_api_workflow", properties.getToolNamePrefix());
@@ -133,6 +137,8 @@ public class SwaggerMcpServerAdapter {
         if (smartContext.isEnabled() && smartContext.isGatewayToolEnabled()) {
             registerDiscoverTool(existingToolNames);
             registerDescribeTool(existingToolNames);
+            registerCapabilitiesTool(existingToolNames);
+            registerValidateTool(existingToolNames);
             registerListGroupsTool(existingToolNames);
             registerPlanWorkflowTool(existingToolNames);
             registerInvokeWorkflowTool(existingToolNames);
@@ -200,6 +206,8 @@ public class SwaggerMcpServerAdapter {
     private boolean isReservedMetaToolName(String toolName) {
         return discoverToolName.equals(toolName)
                 || describeToolName.equals(toolName)
+                || capabilitiesToolName.equals(toolName)
+                || validateToolName.equals(toolName)
                 || listGroupsToolName.equals(toolName)
                 || planWorkflowToolName.equals(toolName)
                 || invokeWorkflowToolName.equals(toolName)
@@ -286,6 +294,78 @@ public class SwaggerMcpServerAdapter {
         mcpSyncServer.addTool(specification);
         existingToolNames.add(describeToolName);
         registeredToolNames.add(describeToolName);
+    }
+
+    private void registerCapabilitiesTool(Set<String> existingToolNames) {
+        if (existingToolNames.contains(capabilitiesToolName)) {
+            return;
+        }
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name(capabilitiesToolName)
+                .title("Get API Gateway Capabilities")
+                .description("Return catalog, safety, orchestration, and execution-policy summaries for MCP clients")
+                .inputSchema(new McpSchema.JsonSchema(
+                        "object",
+                        capabilitiesInputSchemaProperties(),
+                        List.of(),
+                        Boolean.FALSE,
+                        null,
+                        null
+                ))
+                .annotations(new McpSchema.ToolAnnotations(
+                        "Get API Capabilities",
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.FALSE
+                ))
+                .build();
+
+        McpServerFeatures.SyncToolSpecification specification = McpServerFeatures.SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> getApiCapabilities(request.arguments()))
+                .build();
+
+        mcpSyncServer.addTool(specification);
+        existingToolNames.add(capabilitiesToolName);
+        registeredToolNames.add(capabilitiesToolName);
+    }
+
+    private void registerValidateTool(Set<String> existingToolNames) {
+        if (existingToolNames.contains(validateToolName)) {
+            return;
+        }
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name(validateToolName)
+                .title("Validate API Call")
+                .description("Validate generated API tool arguments and execution policy without dispatching HTTP")
+                .inputSchema(new McpSchema.JsonSchema(
+                        "object",
+                        validateInputSchemaProperties(),
+                        List.of("toolName"),
+                        Boolean.FALSE,
+                        null,
+                        null
+                ))
+                .annotations(new McpSchema.ToolAnnotations(
+                        "Validate API Call",
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.FALSE
+                ))
+                .build();
+
+        McpServerFeatures.SyncToolSpecification specification = McpServerFeatures.SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> validateApiCall(request.arguments()))
+                .build();
+
+        mcpSyncServer.addTool(specification);
+        existingToolNames.add(validateToolName);
+        registeredToolNames.add(validateToolName);
     }
 
     private void registerListGroupsTool(Set<String> existingToolNames) {
@@ -446,6 +526,92 @@ public class SwaggerMcpServerAdapter {
         return successResult(structured);
     }
 
+    McpSchema.CallToolResult getApiCapabilities(Map<String, Object> arguments) {
+        Map<String, Object> safeArguments = copyMap(arguments);
+        int maxGroups = Math.max(0, asInt(safeArguments.get("maxGroups"), 10));
+        int maxToolsPerGroup = Math.max(0, asInt(safeArguments.get("maxToolsPerGroup"), 3));
+
+        SwaggerMcpOperationCatalog.CatalogStats stats = operationCatalog.stats();
+        List<Map<String, Object>> groups = new ArrayList<>();
+        int count = 0;
+        for (SwaggerMcpOperationCatalog.GroupSummary group : operationCatalog.summarizeGroups(maxToolsPerGroup)) {
+            if (maxGroups > 0 && count >= maxGroups) {
+                break;
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("name", group.name());
+            item.put("operationCount", group.operationCount());
+            item.put("readOnlyCount", group.readOnlyCount());
+            item.put("riskyCount", group.riskyCount());
+            item.put("methods", group.methods());
+            item.put("sampleTools", group.sampleTools());
+            groups.add(item);
+            count++;
+        }
+
+        Map<String, Object> structured = new LinkedHashMap<>();
+        structured.put("catalog", mapOf(
+                "operationCount", stats.operationCount(),
+                "groupCount", stats.groupCount(),
+                "readOnlyCount", stats.readOnlyCount(),
+                "riskyCount", stats.riskyCount(),
+                "groups", groups
+        ));
+        structured.put("gatewayTools", List.of(
+                capabilitiesToolName,
+                listGroupsToolName,
+                discoverToolName,
+                describeToolName,
+                validateToolName,
+                planWorkflowToolName,
+                invokeWorkflowToolName,
+                invokeByIntentToolName
+        ));
+        structured.put("orchestration", mapOf(
+                "workflowPlanning", planWorkflowToolName,
+                "workflowExecution", invokeWorkflowToolName,
+                "defaultDryRun", true,
+                "stepInterpolation", "${stepId:$.json.path}",
+                "recursiveMetaToolsAllowed", false
+        ));
+        structured.put("safety", mapOf(
+                "validateBeforeExecute", validateToolName,
+                "riskyMethods", properties.getSecurity().getRiskyHttpMethods(),
+                "confirmationRequiredForRiskyOperations", properties.getSecurity().isRequireConfirmationForRiskyOperations(),
+                "confirmationArgument", "_confirm",
+                "dynamicHeadersArgument", "_headers",
+                "blockedArgumentHeaders", properties.getExecution().getBlockedArgumentHeaders(),
+                "allowedArgumentHeaders", properties.getExecution().getAllowedArgumentHeaders()
+        ));
+        structured.put("responseControls", mapOf(
+                "projectionArgumentEnabled", properties.getResponse().isProjectionArgumentEnabled(),
+                "projectionArgument", "_projection",
+                "summarizeArgument", "_summarize",
+                "maxChars", properties.getResponse().getMaxChars(),
+                "maxDepth", properties.getResponse().getMaxDepth()
+        ));
+        return successResult(structured);
+    }
+
+    McpSchema.CallToolResult validateApiCall(Map<String, Object> arguments) {
+        Map<String, Object> safeArguments = copyMap(arguments);
+        String toolName = asString(safeArguments.get("toolName"));
+        if (!StringUtils.hasText(toolName)) {
+            return errorResult("toolName is required");
+        }
+        if (isReservedMetaToolName(toolName)) {
+            return errorResult("Meta tools cannot be validated as API calls: " + toolName);
+        }
+        OpenApiOperationDescriptor operation = operationCatalog.findByToolName(toolName).orElse(null);
+        if (operation == null) {
+            return errorResult("Unknown tool: " + toolName);
+        }
+
+        Map<String, Object> delegatedArguments = extractDelegatedArguments(safeArguments);
+        ToolCallValidation validation = validateToolCall(operation, delegatedArguments);
+        return successResult(validation.toStructuredContent());
+    }
+
     McpSchema.CallToolResult listApiGroups(Map<String, Object> arguments) {
         Map<String, Object> safeArguments = copyMap(arguments);
         int maxToolsPerGroup = Math.max(0, asInt(safeArguments.get("maxToolsPerGroup"), 5));
@@ -538,6 +704,7 @@ public class SwaggerMcpServerAdapter {
         List<Map<String, Object>> stepResults = new ArrayList<>();
         Map<String, Object> workflowContext = new LinkedHashMap<>();
         Set<String> stepIds = new LinkedHashSet<>();
+        Set<String> dryRunAvailableStepIds = new LinkedHashSet<>();
         boolean success = true;
 
         for (int i = 0; i < steps.size(); i++) {
@@ -560,8 +727,15 @@ public class SwaggerMcpServerAdapter {
 
             Map<String, Object> originalArguments = stepArguments(step);
             Map<String, Object> resolvedArguments;
+            WorkflowReferenceValidation referenceValidation = new WorkflowReferenceValidation(List.of(), List.of());
             try {
-                resolvedArguments = dryRun ? originalArguments : resolveWorkflowArguments(originalArguments, workflowContext);
+                if (dryRun) {
+                    referenceValidation = validateWorkflowReferences(originalArguments, dryRunAvailableStepIds);
+                    resolvedArguments = maskWorkflowTemplates(originalArguments);
+                }
+                else {
+                    resolvedArguments = resolveWorkflowArguments(originalArguments, workflowContext);
+                }
             }
             catch (IllegalArgumentException ex) {
                 return errorResult("Failed to resolve workflow step '" + id + "': " + ex.getMessage());
@@ -576,20 +750,18 @@ public class SwaggerMcpServerAdapter {
             stepResult.put("arguments", resolvedArguments);
 
             if (dryRun) {
-                Map<String, Object> contract = describeOperation(operation);
-                stepResult.put("readOnly", operation.isReadOnly());
-                stepResult.put("requiredArguments", contract.get("requiredArguments"));
-                String argumentValidation = validateRequiredArguments(operation, resolvedArguments);
-                String executionValidation = securityPolicy.validateExecution(operation, resolvedArguments).orElse(null);
-                String validationError = argumentValidation != null ? argumentValidation : executionValidation;
-                stepResult.put("wouldExecute", validationError == null);
-                if (validationError != null) {
+                ToolCallValidation validation = validateToolCall(operation, resolvedArguments);
+                Map<String, Object> validationContent = validation.toStructuredContent(referenceValidation.errors());
+                validationContent.put("workflowReferences", referenceValidation.references());
+                stepResult.putAll(validationContent);
+                if (!Boolean.TRUE.equals(validationContent.get("valid"))) {
                     success = false;
-                    stepResult.put("isError", true);
-                    stepResult.put("validationError", validationError);
                 }
                 stepResults.add(stepResult);
-                if (validationError != null) {
+                if (Boolean.TRUE.equals(validationContent.get("valid"))) {
+                    dryRunAvailableStepIds.add(id);
+                }
+                else {
                     boolean stepContinueOnError = asBoolean(step.get("continueOnError"), continueOnError);
                     if (!stepContinueOnError) {
                         break;
@@ -832,6 +1004,61 @@ public class SwaggerMcpServerAdapter {
         return null;
     }
 
+    private ToolCallValidation validateToolCall(OpenApiOperationDescriptor operation, Map<String, Object> arguments) {
+        Map<String, Object> safeArguments = copyMap(arguments);
+        List<String> errors = new ArrayList<>();
+        String argumentValidation = validateRequiredArguments(operation, safeArguments);
+        if (argumentValidation != null) {
+            errors.add(argumentValidation);
+        }
+        securityPolicy.validateExecution(operation, safeArguments).ifPresent(errors::add);
+
+        Map<String, Object> preview = new LinkedHashMap<>();
+        preview.put("method", operation.httpMethod().name());
+        preview.put("pathTemplate", operation.path());
+        if (argumentValidation == null) {
+            try {
+                preview.put("resolvedPath", resolvePath(operation, safeArguments));
+            }
+            catch (Exception ex) {
+                errors.add(ex.getMessage());
+                preview.put("resolvedPathError", ex.getMessage());
+            }
+        }
+        else {
+            preview.put("resolvedPathError", argumentValidation);
+        }
+        preview.put("queryArguments", argumentNamesForLocation(operation, OpenApiParameterLocation.QUERY, safeArguments));
+        preview.put("headerArguments", argumentNamesForLocation(operation, OpenApiParameterLocation.HEADER, safeArguments));
+        preview.put("hasBody", safeArguments.containsKey("body"));
+
+        Map<String, Object> contract = describeOperation(operation);
+        return new ToolCallValidation(
+                errors.isEmpty(),
+                operation.toolName(),
+                operation.operationId(),
+                operation.risky(),
+                operation.isReadOnly(),
+                operation.isIdempotent(),
+                contract.get("requiredArguments"),
+                errors,
+                preview
+        );
+    }
+
+    private List<String> argumentNamesForLocation(
+            OpenApiOperationDescriptor operation,
+            OpenApiParameterLocation location,
+            Map<String, Object> arguments) {
+        List<String> names = new ArrayList<>();
+        for (OpenApiParameterDescriptor parameter : operation.parameters()) {
+            if (parameter.location() == location && arguments.containsKey(parameter.name())) {
+                names.add(parameter.name());
+            }
+        }
+        return names;
+    }
+
     private boolean isMissing(Object value) {
         if (value == null) {
             return true;
@@ -962,6 +1189,21 @@ public class SwaggerMcpServerAdapter {
         return properties;
     }
 
+    private Map<String, Object> capabilitiesInputSchemaProperties() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("maxGroups", mapOf("type", "integer", "description", "Maximum groups to include; use 0 for all groups"));
+        properties.put("maxToolsPerGroup", mapOf("type", "integer", "description", "Maximum sample tool names per group; use 0 for counts only"));
+        return properties;
+    }
+
+    private Map<String, Object> validateInputSchemaProperties() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("toolName", mapOf("type", "string", "description", "Generated API tool name to validate"));
+        properties.put(ARGUMENTS_FIELD, mapOf("type", "object", "additionalProperties", true, "description", "Arguments to validate without dispatching HTTP"));
+        properties.put("_confirm", mapOf("type", "string", "description", "Optional confirmation token for risky operations"));
+        return properties;
+    }
+
     private Map<String, Object> listGroupsInputSchemaProperties() {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("maxToolsPerGroup", mapOf("type", "integer", "description", "Maximum sample tool names per group; use 0 for counts only"));
@@ -1074,6 +1316,91 @@ public class SwaggerMcpServerAdapter {
             return resolveWorkflowTemplate(stringValue, workflowContext);
         }
         return value;
+    }
+
+    private WorkflowReferenceValidation validateWorkflowReferences(Object value, Set<String> availableStepIds) {
+        List<String> errors = new ArrayList<>();
+        List<Map<String, Object>> references = new ArrayList<>();
+        collectWorkflowReferences(value, availableStepIds, errors, references);
+        return new WorkflowReferenceValidation(errors, references);
+    }
+
+    private void collectWorkflowReferences(
+            Object value,
+            Set<String> availableStepIds,
+            List<String> errors,
+            List<Map<String, Object>> references) {
+        if (value instanceof Map<?, ?> rawMap) {
+            for (Object item : rawMap.values()) {
+                collectWorkflowReferences(item, availableStepIds, errors, references);
+            }
+            return;
+        }
+        if (value instanceof List<?> rawList) {
+            for (Object item : rawList) {
+                collectWorkflowReferences(item, availableStepIds, errors, references);
+            }
+            return;
+        }
+        if (!(value instanceof String stringValue)) {
+            return;
+        }
+
+        Matcher matcher = WORKFLOW_TEMPLATE.matcher(stringValue);
+        while (matcher.find()) {
+            String stepId = matcher.group(1);
+            String jsonPath = matcher.group(2);
+            references.add(mapOf("stepId", stepId, "jsonPath", jsonPath));
+            if (!availableStepIds.contains(stepId)) {
+                errors.add("Unknown or unavailable workflow step reference: " + stepId);
+            }
+            try {
+                JsonPath.compile(jsonPath);
+            }
+            catch (Exception ex) {
+                errors.add("Invalid workflow JSONPath reference ${" + stepId + ":" + jsonPath + "}: " + ex.getMessage());
+            }
+        }
+    }
+
+    private Map<String, Object> maskWorkflowTemplates(Map<String, Object> arguments) {
+        Map<String, Object> masked = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : arguments.entrySet()) {
+            masked.put(entry.getKey(), maskWorkflowTemplateValue(entry.getValue()));
+        }
+        return masked;
+    }
+
+    private Object maskWorkflowTemplateValue(Object value) {
+        if (value instanceof Map<?, ?> rawMap) {
+            Map<String, Object> masked = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+                if (entry.getKey() != null) {
+                    masked.put(String.valueOf(entry.getKey()), maskWorkflowTemplateValue(entry.getValue()));
+                }
+            }
+            return masked;
+        }
+        if (value instanceof List<?> rawList) {
+            List<Object> masked = new ArrayList<>();
+            for (Object item : rawList) {
+                masked.add(maskWorkflowTemplateValue(item));
+            }
+            return masked;
+        }
+        if (!(value instanceof String stringValue)) {
+            return value;
+        }
+        Matcher matcher = WORKFLOW_TEMPLATE.matcher(stringValue);
+        if (matcher.matches()) {
+            return "__workflow_ref_" + matcher.group(1);
+        }
+        StringBuffer masked = new StringBuffer();
+        while (matcher.find()) {
+            matcher.appendReplacement(masked, Matcher.quoteReplacement("__workflow_ref_" + matcher.group(1)));
+        }
+        matcher.appendTail(masked);
+        return masked.toString();
     }
 
     private Object resolveWorkflowTemplate(String value, Map<String, Object> workflowContext) {
@@ -1209,5 +1536,45 @@ public class SwaggerMcpServerAdapter {
             map.put(String.valueOf(keyValuePairs[i]), keyValuePairs[i + 1]);
         }
         return map;
+    }
+
+    private record ToolCallValidation(
+            boolean valid,
+            String toolName,
+            String operationId,
+            boolean risky,
+            boolean readOnly,
+            boolean idempotent,
+            Object requiredArguments,
+            List<String> errors,
+            Map<String, Object> dispatchPreview) {
+
+        Map<String, Object> toStructuredContent() {
+            return toStructuredContent(List.of());
+        }
+
+        Map<String, Object> toStructuredContent(List<String> additionalErrors) {
+            List<String> mergedErrors = new ArrayList<>(errors);
+            mergedErrors.addAll(additionalErrors);
+            boolean mergedValid = valid && mergedErrors.isEmpty();
+            Map<String, Object> structured = new LinkedHashMap<>();
+            structured.put("toolName", toolName);
+            structured.put("operationId", operationId);
+            structured.put("valid", mergedValid);
+            structured.put("wouldExecute", mergedValid);
+            structured.put("isError", !mergedValid);
+            structured.put("risky", risky);
+            structured.put("readOnly", readOnly);
+            structured.put("idempotent", idempotent);
+            structured.put("requiredArguments", requiredArguments);
+            structured.put("errors", mergedErrors);
+            structured.put("dispatchPreview", dispatchPreview);
+            return structured;
+        }
+    }
+
+    private record WorkflowReferenceValidation(
+            List<String> errors,
+            List<Map<String, Object>> references) {
     }
 }
