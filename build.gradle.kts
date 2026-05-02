@@ -2,7 +2,7 @@ plugins {
     java
     `maven-publish`
     signing
-    id("org.springframework.boot") version "3.5.9"
+    id("org.springframework.boot") version "4.0.6"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -29,7 +29,7 @@ repositories {
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.17")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.3")
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
     implementation("com.jayway.jsonpath:json-path:3.0.0")
 
