@@ -1,4 +1,4 @@
-# Security Policy
+# Swagger MCP Bridge Security Policy
 
 ## Supported Versions
 

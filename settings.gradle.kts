@@ -1,1 +1,1 @@
-rootProject.name = "spring-boot-starter-swagger-mcp"
+rootProject.name = "swagger-mcp-bridge"

@@ -13,7 +13,7 @@ version = providers.gradleProperty("projectVersion")
     .orElse(providers.environmentVariable("PROJECT_VERSION"))
     .orElse(defaultProjectVersion)
     .get()
-description = "Spring Boot starter that auto-exposes SpringDoc OpenAPI operations as MCP tools"
+description = "Production-ready Spring Boot starter that turns SpringDoc OpenAPI into safe, orchestrated MCP tools"
 val isSnapshotVersion = version.toString().endsWith("SNAPSHOT")
 val semverRegex = Regex("""^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$""")
 
@@ -97,7 +97,7 @@ publishing {
             artifactId = "spring-boot-starter-swagger-mcp"
 
             pom {
-                name.set("spring-boot-starter-swagger-mcp")
+                name.set("Swagger MCP Bridge")
                 description.set(project.description)
                 url.set("https://github.com/Neo1228/spring-boot-starter-swagger-mcp")
 

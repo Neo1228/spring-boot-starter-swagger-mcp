@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to Swagger MCP Bridge will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
@@ -23,6 +23,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Publish workflow now runs tests before artifact publication
 - Build now verifies project version format for publish tasks
 - README and release guide expanded for external-consumer usage
+- Project branding refreshed around the Swagger MCP Bridge name, tagline, metadata, and GitHub repository discoverability
 
 ### Deprecated
 

@@ -1,4 +1,4 @@
-# Versioning Policy
+# Swagger MCP Bridge Versioning Policy
 
 This project follows Semantic Versioning.
 

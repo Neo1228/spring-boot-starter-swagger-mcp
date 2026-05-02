@@ -1,7 +1,7 @@
 ## Summary
 
 - What changed:
-- Why:
+- Why it improves Swagger MCP Bridge:
 
 ## Checklist
 

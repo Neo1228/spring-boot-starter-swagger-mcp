@@ -1,6 +1,6 @@
-# Releasing
+# Releasing Swagger MCP Bridge
 
-This document describes how to publish this starter so that other users can consume it as a regular dependency.
+This document describes how to publish Swagger MCP Bridge so that other users can consume it as a regular dependency.
 
 ## Required GitHub Secrets
 

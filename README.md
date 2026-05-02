@@ -1,4 +1,4 @@
-# spring-boot-starter-swagger-mcp
+# Swagger MCP Bridge
 
 [![CI](https://github.com/Neo1228/spring-boot-starter-swagger-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Neo1228/spring-boot-starter-swagger-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -6,21 +6,27 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![Awesome MCP Servers](https://img.shields.io/badge/awesome--mcp--servers-listed-blueviolet.svg)](https://github.com/punkpeye/awesome-mcp-servers/pull/2059)
 
-Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as MCP tools.
+**Turn any SpringDoc-powered Spring Boot API into a production-ready MCP gateway.**
+
+Swagger MCP Bridge discovers your OpenAPI operations, publishes them as safe MCP tools, and adds a smart gateway layer for API discovery, validation, response shaping, and multi-step workflow orchestration.
+
+## Why Swagger MCP Bridge
+
+Most MCP API bridges stop at a thin tool wrapper. Swagger MCP Bridge is designed as a runtime gateway: it exposes your existing Spring controllers to LLM clients while preserving contracts, guardrails, and operational visibility.
 
 ## What You Get
 
-- Auto-discovery of OpenAPI operations from your running Spring app
-- Auto-registration of MCP tools for discovered API operations
-- Smart-context tools: `meta_get_api_capabilities`, `meta_validate_api_call`, `meta_discover_api_tools`, `meta_describe_api_tool`, `meta_list_api_groups`, `meta_plan_api_workflow`, `meta_invoke_api_workflow`, `meta_invoke_api_by_intent`
-- API gateway, catalog, and workflow layer that lets MCP clients inspect capabilities, validate calls, explore grouped APIs, plan multi-step calls, and execute them with dry-run safety
-- Rich MCP input schemas from OpenAPI constraints (required fields, enum, numeric/string/array/object limits, examples, deprecation hints)
-- Response optimization with projection/summarization controls
+- Zero-boilerplate discovery of SpringDoc OpenAPI operations from your running Spring app
+- Automatic MCP tool registration for discovered API operations
+- Smart-context gateway tools: `meta_get_api_capabilities`, `meta_validate_api_call`, `meta_discover_api_tools`, `meta_describe_api_tool`, `meta_list_api_groups`, `meta_plan_api_workflow`, `meta_invoke_api_workflow`, `meta_invoke_api_by_intent`
+- API catalog and workflow layer for capability inspection, preflight validation, grouped exploration, dry-run planning, and sequential execution
+- Rich MCP input schemas generated from OpenAPI constraints: required fields, enums, numeric/string/object limits, examples, and deprecation hints
+- Response shaping with JSONPath projection and summarization controls
 - Execution guardrails: required argument validation, unresolved path-template protection, and safe `_headers` filtering
 - Structured MCP error responses with stable codes such as `INVALID_ARGUMENT`, `SECURITY_DENIED`, `WORKFLOW_ERROR`, and `HTTP_DISPATCH_FAILED`
 - Java 17 bytecode with CI coverage on Java 17, 21, and 25
 - Optional virtual-thread HTTP dispatch on Java 21+ runtimes, with automatic platform-thread fallback on Java 17
-- Risk controls for dangerous operations (`_confirm`, blocked paths, role checks, audit logs)
+- Production guardrails for dangerous operations: `_confirm`, blocked paths, role checks, audit logs, and structured client errors
 
 ## Architecture
 
@@ -34,7 +40,7 @@ graph TD
     Bridge <--> API[Your Spring Controller /hello]
 ```
 
-## Quick Start (New Empty Spring Boot Project)
+## Quick Start
 
 ### 1. Create a Spring Boot app
 
@@ -230,7 +236,7 @@ Example workflow payload:
 
 For larger APIs, set `swagger.mcp.smart-context.gateway-only=true` to expose only this gateway/meta layer instead of registering every operation as a top-level MCP tool.
 
-## Use It Before Public Release (Local Development Install)
+## Local Development Install
 
 If the artifact is not published to a remote registry yet:
 
@@ -263,7 +269,7 @@ Spring Boot 4.x is intentionally not supported in the 0.1.x line. Stay on Spring
 
 ## Example Consumer Project
 
-See `examples/minimal-webmvc-gradle` for a minimal app using this starter.
+See `examples/minimal-webmvc-gradle` for a minimal Spring Boot app using Swagger MCP Bridge.
 
 ## Release And Versioning
 

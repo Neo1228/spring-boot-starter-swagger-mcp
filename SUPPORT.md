@@ -1,6 +1,6 @@
-# Support
+# Swagger MCP Bridge Support
 
-Thank you for using `spring-boot-starter-swagger-mcp`. We want to help you get the most out of this project.
+Thank you for using Swagger MCP Bridge. We want to help you expose Spring APIs to MCP clients safely and predictably.
 
 ## How to get help
 

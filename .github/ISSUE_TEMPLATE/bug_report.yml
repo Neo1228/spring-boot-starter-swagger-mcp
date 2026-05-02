@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible defect
+description: Report a reproducible Swagger MCP Bridge defect
 title: "[Bug] "
 labels: ["bug"]
 body:
