@@ -64,6 +64,7 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
     private final Environment environment;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final SwaggerMcpToolResults toolResults;
     private final Set<String> registeredToolNames = ConcurrentHashMap.newKeySet();
     private final String discoverToolName;
     private final String describeToolName;
@@ -96,6 +97,7 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
         this.properties = properties;
         this.environment = environment;
         this.objectMapper = objectMapper;
+        this.toolResults = new SwaggerMcpToolResults(objectMapper);
         ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
                 .withConnectTimeout(properties.getExecution().getConnectTimeout())
                 .withReadTimeout(properties.getExecution().getReadTimeout());
@@ -180,21 +182,19 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
     public McpSchema.CallToolResult invokeTool(String toolName, Map<String, Object> arguments) {
         OpenApiOperationDescriptor operation = operationCatalog.findByToolName(toolName).orElse(null);
         if (operation == null) {
-            return errorResult("Unknown tool: " + toolName);
+            return errorResult(SwaggerMcpToolException.unknownTool(toolName));
         }
         Map<String, Object> safeArguments = copyMap(arguments);
         securityPolicy.auditStart(operation, safeArguments);
         try {
             String argumentValidation = validateRequiredArguments(operation, safeArguments);
             if (argumentValidation != null) {
-                securityPolicy.auditEnd(operation, false, 400);
-                return errorResult(argumentValidation);
+                throw SwaggerMcpToolException.invalidArgument(argumentValidation, Map.of("toolName", operation.toolName()));
             }
 
             var validationResult = securityPolicy.validateExecution(operation, safeArguments);
             if (validationResult.isPresent()) {
-                securityPolicy.auditEnd(operation, false, 403);
-                return errorResult(validationResult.get());
+                throw SwaggerMcpToolException.securityDenied(validationResult.get());
             }
 
             ResponseEntity<String> response = executeHttp(operation, safeArguments);
@@ -213,11 +213,27 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
             }
             return resultBuilder.build();
         }
+        catch (SwaggerMcpToolException ex) {
+            securityPolicy.auditEnd(operation, false, ex.status());
+            logToolException(operation, ex);
+            return errorResult(ex);
+        }
         catch (Exception ex) {
             securityPolicy.auditEnd(operation, false, 500);
             logger.warn("Tool execution failed: {}", operation.toolName(), ex);
-            return errorResult("Tool execution failed: " + ex.getMessage());
+            return errorResult(SwaggerMcpToolException.internal("Tool execution failed: " + ex.getMessage(), ex));
         }
+    }
+
+    private void logToolException(OpenApiOperationDescriptor operation, SwaggerMcpToolException exception) {
+        if (exception.status() >= 500) {
+            logger.warn("Tool execution failed: {} [{}]", operation.toolName(), exception.code(), exception);
+            return;
+        }
+        logger.debug("Tool execution rejected: {} [{}] {}",
+                operation.toolName(),
+                exception.code(),
+                exception.getMessage());
     }
 
     private boolean isReservedMetaToolName(String toolName) {
@@ -533,11 +549,11 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
         Map<String, Object> safeArguments = copyMap(arguments);
         String toolName = asString(safeArguments.get("toolName"));
         if (!StringUtils.hasText(toolName)) {
-            return errorResult("toolName is required");
+            return errorResult(SwaggerMcpToolException.invalidArgument("toolName is required"));
         }
         OpenApiOperationDescriptor operation = operationCatalog.findByToolName(toolName).orElse(null);
         if (operation == null) {
-            return errorResult("Unknown tool: " + toolName);
+            return errorResult(SwaggerMcpToolException.unknownTool(toolName));
         }
         Map<String, Object> structured = describeOperation(operation);
         return successResult(structured);
@@ -621,14 +637,16 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
         Map<String, Object> safeArguments = copyMap(arguments);
         String toolName = asString(safeArguments.get("toolName"));
         if (!StringUtils.hasText(toolName)) {
-            return errorResult("toolName is required");
+            return errorResult(SwaggerMcpToolException.invalidArgument("toolName is required"));
         }
         if (isReservedMetaToolName(toolName)) {
-            return errorResult("Meta tools cannot be validated as API calls: " + toolName);
+            return errorResult(SwaggerMcpToolException.invalidArgument(
+                    "Meta tools cannot be validated as API calls: " + toolName,
+                    Map.of("toolName", toolName)));
         }
         OpenApiOperationDescriptor operation = operationCatalog.findByToolName(toolName).orElse(null);
         if (operation == null) {
-            return errorResult("Unknown tool: " + toolName);
+            return errorResult(SwaggerMcpToolException.unknownTool(toolName));
         }
 
         Map<String, Object> delegatedArguments = extractDelegatedArguments(safeArguments);
@@ -666,7 +684,7 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
         Map<String, Object> safeArguments = copyMap(arguments);
         String goal = asString(safeArguments.get("goal"));
         if (!StringUtils.hasText(goal)) {
-            return errorResult("goal is required");
+            return errorResult(SwaggerMcpToolException.invalidArgument("goal is required"));
         }
         int requestedTopK = asInt(safeArguments.get("topK"), properties.getSmartContext().getDefaultTopK());
         int topK = Math.max(1, requestedTopK);
@@ -712,13 +730,13 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
         Map<String, Object> safeArguments = copyMap(arguments);
         Object rawSteps = safeArguments.get(STEPS_FIELD);
         if (!(rawSteps instanceof List<?> rawStepList) || rawStepList.isEmpty()) {
-            return errorResult("steps must be a non-empty array");
+            return errorResult(SwaggerMcpToolException.workflow("steps must be a non-empty array"));
         }
 
         List<Map<String, Object>> steps = new ArrayList<>();
         for (Object rawStep : rawStepList) {
             if (!(rawStep instanceof Map<?, ?> rawStepMap)) {
-                return errorResult("Each workflow step must be an object");
+                return errorResult(SwaggerMcpToolException.workflow("Each workflow step must be an object"));
             }
             steps.add(copyStringKeyMap(rawStepMap));
         }
@@ -735,18 +753,26 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
             Map<String, Object> step = steps.get(i);
             String id = workflowStepId(step, i);
             if (!stepIds.add(id)) {
-                return errorResult("Duplicate workflow step id: " + id);
+                return errorResult(SwaggerMcpToolException.workflow(
+                        "Duplicate workflow step id: " + id,
+                        Map.of("stepId", id)));
             }
             String toolName = asString(step.get("toolName"));
             if (!StringUtils.hasText(toolName)) {
-                return errorResult("steps[" + i + "].toolName is required");
+                return errorResult(SwaggerMcpToolException.workflow(
+                        "steps[" + i + "].toolName is required",
+                        Map.of("stepIndex", i)));
             }
             if (isReservedMetaToolName(toolName)) {
-                return errorResult("Workflow steps cannot invoke meta tools: " + toolName);
+                return errorResult(SwaggerMcpToolException.workflow(
+                        "Workflow steps cannot invoke meta tools: " + toolName,
+                        Map.of("toolName", toolName)));
             }
             OpenApiOperationDescriptor operation = operationCatalog.findByToolName(toolName).orElse(null);
             if (operation == null) {
-                return errorResult("Unknown workflow step tool: " + toolName);
+                return errorResult(SwaggerMcpToolException.workflow(
+                        "Unknown workflow step tool: " + toolName,
+                        Map.of("toolName", toolName)));
             }
 
             Map<String, Object> originalArguments = stepArguments(step);
@@ -761,8 +787,10 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
                     resolvedArguments = resolveWorkflowArguments(originalArguments, workflowContext);
                 }
             }
-            catch (IllegalArgumentException ex) {
-                return errorResult("Failed to resolve workflow step '" + id + "': " + ex.getMessage());
+            catch (SwaggerMcpToolException ex) {
+                return errorResult(SwaggerMcpToolException.workflow(
+                        "Failed to resolve workflow step '" + id + "': " + ex.getMessage(),
+                        Map.of("stepId", id, "code", ex.code().name())));
             }
 
             Map<String, Object> stepResult = new LinkedHashMap<>();
@@ -829,7 +857,7 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
         Map<String, Object> safeArguments = copyMap(arguments);
         String query = asString(safeArguments.get("query"));
         if (!StringUtils.hasText(query)) {
-            return errorResult("query is required");
+            return errorResult(SwaggerMcpToolException.invalidArgument("query is required"));
         }
         int requestedTopK = asInt(safeArguments.get("topK"), properties.getSmartContext().getDefaultTopK());
         int topK = Math.max(1, requestedTopK);
@@ -859,18 +887,22 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
         Map<String, Object> safeArguments = copyMap(arguments);
         String query = asString(safeArguments.get("query"));
         if (!StringUtils.hasText(query)) {
-            return errorResult("query is required");
+            return errorResult(SwaggerMcpToolException.invalidArgument("query is required"));
         }
         int requestedTopK = asInt(safeArguments.get("topK"), properties.getSmartContext().getDefaultTopK());
         int topK = Math.max(1, requestedTopK);
 
         List<SwaggerMcpToolSelector.ScoredTool> results = toolSelector.select(query, topK);
         if (results.isEmpty()) {
-            return errorResult("No matching API tool found for query: " + query);
+            return errorResult(SwaggerMcpToolException.invalidArgument(
+                    "No matching API tool found for query: " + query,
+                    Map.of("query", query)));
         }
         SwaggerMcpToolSelector.ScoredTool selected = results.get(0);
         if (selected.score() < properties.getSmartContext().getMinScore()) {
-            return errorResult("No API tool passed the minimum relevance threshold for query: " + query);
+            return errorResult(SwaggerMcpToolException.invalidArgument(
+                    "No API tool passed the minimum relevance threshold for query: " + query,
+                    Map.of("query", query)));
         }
 
         Map<String, Object> delegatedArguments = extractDelegatedArguments(safeArguments);
@@ -912,11 +944,14 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
             try {
                 return dispatch.call();
             }
-            catch (RuntimeException ex) {
+            catch (SwaggerMcpToolException ex) {
                 throw ex;
             }
+            catch (RuntimeException ex) {
+                throw SwaggerMcpToolException.dispatchFailed("HTTP dispatch failed: " + ex.getMessage(), ex);
+            }
             catch (Exception ex) {
-                throw new IllegalStateException(ex);
+                throw SwaggerMcpToolException.dispatchFailed("HTTP dispatch failed: " + ex.getMessage(), ex);
             }
         }
 
@@ -926,17 +961,22 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
         }
         catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("HTTP dispatch interrupted", ex);
+            throw SwaggerMcpToolException.dispatchInterrupted(ex);
         }
         catch (ExecutionException ex) {
             Throwable cause = ex.getCause();
+            if (cause instanceof SwaggerMcpToolException toolException) {
+                throw toolException;
+            }
             if (cause instanceof RuntimeException runtimeException) {
-                throw runtimeException;
+                throw SwaggerMcpToolException.dispatchFailed(
+                        "HTTP dispatch failed: " + runtimeException.getMessage(),
+                        runtimeException);
             }
             if (cause instanceof Error error) {
                 throw error;
             }
-            throw new IllegalStateException(cause);
+            throw SwaggerMcpToolException.dispatchFailed("HTTP dispatch failed: " + cause.getMessage(), cause);
         }
     }
 
@@ -1133,7 +1173,9 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
         }
         Object body = arguments.get("body");
         if (body == null && operation.requestBodyRequired()) {
-            throw new IllegalArgumentException("body is required for " + operation.toolName());
+            throw SwaggerMcpToolException.invalidArgument(
+                    "body is required for " + operation.toolName(),
+                    Map.of("toolName", operation.toolName()));
         }
         return body;
     }
@@ -1147,7 +1189,9 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
             Object value = arguments.get(parameter.name());
             if (value == null) {
                 if (parameter.required()) {
-                    throw new IllegalArgumentException("Missing required path parameter: " + parameter.name());
+                    throw SwaggerMcpToolException.invalidArgument(
+                            "Missing required path parameter: " + parameter.name(),
+                            Map.of("toolName", operation.toolName(), "parameter", parameter.name()));
                 }
                 continue;
             }
@@ -1156,7 +1200,9 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
             resolvedPath = resolvedPath.replace(placeholder, encodedValue);
         }
         if (resolvedPath.contains("{") || resolvedPath.contains("}")) {
-            throw new IllegalArgumentException("Unresolved path template for " + operation.toolName() + ": " + resolvedPath);
+            throw SwaggerMcpToolException.invalidArgument(
+                    "Unresolved path template for " + operation.toolName() + ": " + resolvedPath,
+                    Map.of("toolName", operation.toolName(), "resolvedPath", resolvedPath));
         }
         return resolvedPath;
     }
@@ -1479,17 +1525,21 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
 
     private Object readWorkflowContext(String stepId, String jsonPath, Map<String, Object> workflowContext) {
         if (!workflowContext.containsKey(stepId)) {
-            throw new IllegalArgumentException("Unknown workflow step reference: " + stepId);
+            throw SwaggerMcpToolException.workflow("Unknown workflow step reference: " + stepId, Map.of("stepId", stepId));
         }
         try {
             String json = objectMapper.writeValueAsString(workflowContext.get(stepId));
             return JsonPath.read(json, jsonPath);
         }
         catch (PathNotFoundException ex) {
-            throw new IllegalArgumentException("No value matched workflow reference: ${" + stepId + ":" + jsonPath + "}");
+            throw SwaggerMcpToolException.workflow(
+                    "No value matched workflow reference: ${" + stepId + ":" + jsonPath + "}",
+                    Map.of("stepId", stepId, "jsonPath", jsonPath));
         }
         catch (Exception ex) {
-            throw new IllegalArgumentException("Invalid workflow reference ${" + stepId + ":" + jsonPath + "}: " + ex.getMessage());
+            throw SwaggerMcpToolException.workflow(
+                    "Invalid workflow reference ${" + stepId + ":" + jsonPath + "}: " + ex.getMessage(),
+                    Map.of("stepId", stepId, "jsonPath", jsonPath));
         }
     }
 
@@ -1535,19 +1585,11 @@ public class SwaggerMcpServerAdapter implements DisposableBean {
     }
 
     private McpSchema.CallToolResult successResult(Object structuredContent) {
-        String text = toJsonText(structuredContent);
-        return McpSchema.CallToolResult.builder()
-                .isError(Boolean.FALSE)
-                .addTextContent(text)
-                .structuredContent(structuredContent)
-                .build();
+        return toolResults.success(structuredContent);
     }
 
-    private McpSchema.CallToolResult errorResult(String message) {
-        return McpSchema.CallToolResult.builder()
-                .isError(Boolean.TRUE)
-                .addTextContent(message)
-                .build();
+    private McpSchema.CallToolResult errorResult(SwaggerMcpToolException exception) {
+        return toolResults.error(exception);
     }
 
     private String toJsonText(Object value) {

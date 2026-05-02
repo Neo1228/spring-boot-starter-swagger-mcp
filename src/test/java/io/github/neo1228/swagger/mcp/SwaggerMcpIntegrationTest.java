@@ -105,6 +105,7 @@ class SwaggerMcpIntegrationTest {
         );
         assertThat(denied.isError()).isTrue();
         assertThat(((McpSchema.TextContent) denied.content().get(0)).text()).contains("Confirmation is required");
+        assertErrorCode(denied, SwaggerMcpErrorCode.SECURITY_DENIED);
 
         McpSchema.CallToolResult approved = adapter.invokeTool(
                 "api_createorder",
@@ -216,6 +217,10 @@ class SwaggerMcpIntegrationTest {
                 .containsEntry("wouldExecute", true);
         assertThat((Map<String, Object>) validPayload.get("dispatchPreview"))
                 .containsEntry("resolvedPath", "/orders/order-2");
+
+        McpSchema.CallToolResult unknown = adapter.validateApiCall(Map.of("toolName", "api_missing"));
+        assertThat(unknown.isError()).isTrue();
+        assertErrorCode(unknown, SwaggerMcpErrorCode.UNKNOWN_TOOL);
     }
 
     @Test
@@ -357,6 +362,7 @@ class SwaggerMcpIntegrationTest {
         assertThat(result.isError()).isTrue();
         assertThat(((McpSchema.TextContent) result.content().get(0)).text())
                 .contains("Workflow steps cannot invoke meta tools");
+        assertErrorCode(result, SwaggerMcpErrorCode.WORKFLOW_ERROR);
     }
 
     @Test
@@ -370,6 +376,7 @@ class SwaggerMcpIntegrationTest {
         assertThat(((McpSchema.TextContent) missingPath.content().get(0)).text())
                 .contains("Missing required argument(s)")
                 .contains("path parameter: orderId");
+        assertErrorCode(missingPath, SwaggerMcpErrorCode.INVALID_ARGUMENT);
 
         McpSchema.CallToolResult missingQuery = adapter.invokeTool("api_searchorders", Map.of());
         assertThat(missingQuery.isError()).isTrue();
@@ -414,9 +421,29 @@ class SwaggerMcpIntegrationTest {
             assertThat(result.isError()).isTrue();
             assertThat(((McpSchema.TextContent) result.content().get(0)).text())
                     .contains("Unresolved path template");
+            assertErrorCode(result, SwaggerMcpErrorCode.INVALID_ARGUMENT);
         }
         finally {
             operations.remove("api_broken_path");
+        }
+    }
+
+
+    @Test
+    void reportsHttpDispatchFailuresWithStableErrorCode() {
+        await().atMost(15, SECONDS).untilAsserted(() ->
+                assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList()).contains("api_gethello"));
+
+        try {
+            properties.getExecution().setBaseUrl("http://127.0.0.1:1");
+
+            McpSchema.CallToolResult result = adapter.invokeTool("api_gethello", Map.of("name", "Neo"));
+
+            assertThat(result.isError()).isTrue();
+            assertErrorCode(result, SwaggerMcpErrorCode.HTTP_DISPATCH_FAILED);
+        }
+        finally {
+            properties.getExecution().setBaseUrl(null);
         }
     }
 
@@ -459,6 +486,20 @@ class SwaggerMcpIntegrationTest {
         List<SwaggerMcpToolSelector.ScoredTool> scoredTools = toolSelector.select("say hello to user", 3);
         assertThat(scoredTools).isNotEmpty();
         assertThat(scoredTools.get(0).operation().toolName()).isEqualTo("api_gethello");
+    }
+
+
+    @SuppressWarnings("unchecked")
+    private void assertErrorCode(McpSchema.CallToolResult result, SwaggerMcpErrorCode expectedCode) {
+        assertThat(result.structuredContent()).isInstanceOf(Map.class);
+        Map<String, Object> payload = (Map<String, Object>) result.structuredContent();
+        assertThat(payload).containsKey("error");
+        Map<String, Object> error = (Map<String, Object>) payload.get("error");
+        assertThat(error)
+                .containsEntry("code", expectedCode.name())
+                .containsEntry("retryable", expectedCode == SwaggerMcpErrorCode.HTTP_DISPATCH_FAILED
+                        || expectedCode == SwaggerMcpErrorCode.HTTP_DISPATCH_INTERRUPTED)
+                .containsKeys("message", "status");
     }
 
     @RestController

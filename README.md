@@ -17,6 +17,7 @@ Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as M
 - Rich MCP input schemas from OpenAPI constraints (required fields, enum, numeric/string/array/object limits, examples, deprecation hints)
 - Response optimization with projection/summarization controls
 - Execution guardrails: required argument validation, unresolved path-template protection, and safe `_headers` filtering
+- Structured MCP error responses with stable codes such as `INVALID_ARGUMENT`, `SECURITY_DENIED`, `WORKFLOW_ERROR`, and `HTTP_DISPATCH_FAILED`
 - Java 17 bytecode with CI coverage on Java 17, 21, and 25
 - Optional virtual-thread HTTP dispatch on Java 21+ runtimes, with automatic platform-thread fallback on Java 17
 - Risk controls for dangerous operations (`_confirm`, blocked paths, role checks, audit logs)
@@ -159,6 +160,20 @@ This starter exposes direct API tools and a meta-tool layer so general MCP clien
 8. `meta_invoke_api_by_intent` can select and invoke the best matching operation when the client already has enough arguments.
 
 The configured `tool-name-prefix` is still applied, so the default generated names are `api_meta_get_api_capabilities`, `api_meta_validate_api_call`, `api_meta_list_api_groups`, `api_meta_discover_api_tools`, `api_meta_describe_api_tool`, `api_meta_plan_api_workflow`, `api_meta_invoke_api_workflow`, and `api_meta_invoke_api_by_intent`.
+
+When a tool call is rejected, the text content remains human-readable and `structuredContent.error` gives clients a stable machine contract:
+
+```json
+{
+  "error": {
+    "code": "INVALID_ARGUMENT",
+    "message": "Missing required argument(s): path parameter: orderId",
+    "status": 400,
+    "retryable": false,
+    "details": { "toolName": "api_getorder" }
+  }
+}
+```
 
 Recommended client loop:
 
