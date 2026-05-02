@@ -17,6 +17,18 @@ public record OpenApiOperationDescriptor(
         Schema<?> requestBodySchema,
         boolean risky
 ) {
+
+    public boolean isReadOnly() {
+        return HttpMethod.GET.equals(httpMethod)
+                || HttpMethod.HEAD.equals(httpMethod)
+                || HttpMethod.OPTIONS.equals(httpMethod);
+    }
+
+    public boolean isIdempotent() {
+        return isReadOnly()
+                || HttpMethod.PUT.equals(httpMethod)
+                || HttpMethod.DELETE.equals(httpMethod);
+    }
 }
 
 record OpenApiParameterDescriptor(

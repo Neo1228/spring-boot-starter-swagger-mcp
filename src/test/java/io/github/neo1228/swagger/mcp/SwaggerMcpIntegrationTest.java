@@ -55,13 +55,22 @@ class SwaggerMcpIntegrationTest {
     private SwaggerMcpToolSelector toolSelector;
 
     @Autowired
+    private SwaggerMcpOperationCatalog operationCatalog;
+
+    @Autowired
     private SwaggerMcpProperties properties;
 
     @Test
     void registersToolsForControllerOperations() {
         await().atMost(15, SECONDS).untilAsserted(() -> {
             List<String> toolNames = mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList();
-            assertThat(toolNames).contains("api_gethello", "api_createorder", "api_meta_discover_api_tools");
+            assertThat(toolNames).contains(
+                    "api_gethello",
+                    "api_createorder",
+                    "api_meta_discover_api_tools",
+                    "api_meta_describe_api_tool",
+                    "api_meta_list_api_groups"
+            );
         });
     }
 
@@ -101,6 +110,32 @@ class SwaggerMcpIntegrationTest {
     }
 
     @Test
+    void exposesCatalogMetaToolsForApiExploration() {
+        await().atMost(15, SECONDS).untilAsserted(() ->
+                assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList())
+                        .contains("api_meta_describe_api_tool", "api_meta_list_api_groups", "api_gethello"));
+
+        McpSchema.CallToolResult groups = adapter.listApiGroups(Map.of("maxToolsPerGroup", 3));
+        assertThat(groups.isError()).isFalse();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> groupPayload = (Map<String, Object>) groups.structuredContent();
+        assertThat(groupPayload).containsKeys("operationCount", "groupCount", "groups");
+        assertThat((Integer) groupPayload.get("operationCount")).isGreaterThanOrEqualTo(6);
+
+        McpSchema.CallToolResult description = adapter.describeApiTool(Map.of("toolName", "api_gethello"));
+        assertThat(description.isError()).isFalse();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> descriptionPayload = (Map<String, Object>) description.structuredContent();
+        assertThat(descriptionPayload)
+                .containsEntry("toolName", "api_gethello")
+                .containsEntry("method", "GET")
+                .containsEntry("path", "/hello")
+                .containsEntry("readOnly", true)
+                .containsKey("inputSchema");
+        assertThat(descriptionPayload.get("requiredArguments")).isInstanceOf(List.class);
+    }
+
+    @Test
     void validatesRequiredArgumentsBeforeHttpDispatch() {
         await().atMost(15, SECONDS).untilAsserted(() ->
                 assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList())
@@ -132,7 +167,7 @@ class SwaggerMcpIntegrationTest {
     @SuppressWarnings("unchecked")
     void rejectsUnresolvedPathTemplates() {
         Map<String, OpenApiOperationDescriptor> operations =
-                (Map<String, OpenApiOperationDescriptor>) ReflectionTestUtils.getField(adapter, "operationsByToolName");
+                (Map<String, OpenApiOperationDescriptor>) ReflectionTestUtils.getField(operationCatalog, "operationsByToolName");
         assertThat(operations).isNotNull();
 
         OpenApiOperationDescriptor descriptor = new OpenApiOperationDescriptor(

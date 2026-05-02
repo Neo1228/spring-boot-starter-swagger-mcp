@@ -45,21 +45,24 @@ public class SwaggerMcpServerAdapter {
     private final McpSyncServer mcpSyncServer;
     private final OpenApiToMcpToolConverter converter;
     private final SwaggerMcpToolSelector toolSelector;
+    private final SwaggerMcpOperationCatalog operationCatalog;
     private final SwaggerMcpResponseOptimizer responseOptimizer;
     private final SwaggerMcpSecurityPolicy securityPolicy;
     private final SwaggerMcpProperties properties;
     private final Environment environment;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-    private final Map<String, OpenApiOperationDescriptor> operationsByToolName = new ConcurrentHashMap<>();
     private final Set<String> registeredToolNames = ConcurrentHashMap.newKeySet();
     private final String discoverToolName;
+    private final String describeToolName;
+    private final String listGroupsToolName;
     private final String invokeByIntentToolName;
 
     public SwaggerMcpServerAdapter(
             McpSyncServer mcpSyncServer,
             OpenApiToMcpToolConverter converter,
             SwaggerMcpToolSelector toolSelector,
+            SwaggerMcpOperationCatalog operationCatalog,
             SwaggerMcpResponseOptimizer responseOptimizer,
             SwaggerMcpSecurityPolicy securityPolicy,
             SwaggerMcpProperties properties,
@@ -69,6 +72,7 @@ public class SwaggerMcpServerAdapter {
         this.mcpSyncServer = mcpSyncServer;
         this.converter = converter;
         this.toolSelector = toolSelector;
+        this.operationCatalog = operationCatalog;
         this.responseOptimizer = responseOptimizer;
         this.securityPolicy = securityPolicy;
         this.properties = properties;
@@ -87,21 +91,28 @@ public class SwaggerMcpServerAdapter {
                 })
                 .build();
         this.discoverToolName = converter.toToolName("meta_discover_api_tools", properties.getToolNamePrefix());
+        this.describeToolName = converter.toToolName("meta_describe_api_tool", properties.getToolNamePrefix());
+        this.listGroupsToolName = converter.toToolName("meta_list_api_groups", properties.getToolNamePrefix());
         this.invokeByIntentToolName = converter.toToolName("meta_invoke_api_by_intent", properties.getToolNamePrefix());
     }
 
     public synchronized void registerOperations(List<OpenApiOperationDescriptor> operations) {
         removeRegisteredTools();
-        operationsByToolName.clear();
 
+        SwaggerMcpProperties.SmartContext smartContext = properties.getSmartContext();
+        List<OpenApiOperationDescriptor> sourceOperations = operations == null ? List.of() : operations;
         List<OpenApiOperationDescriptor> eligibleOperations = new ArrayList<>();
-        for (OpenApiOperationDescriptor operation : operations) {
+        for (OpenApiOperationDescriptor operation : sourceOperations) {
             if (!securityPolicy.shouldExpose(operation)) {
                 continue;
             }
+            if (smartContext.isEnabled() && smartContext.isGatewayToolEnabled() && isReservedMetaToolName(operation.toolName())) {
+                logger.debug("Skipping tool registration because name is reserved for a meta tool: {}", operation.toolName());
+                continue;
+            }
             eligibleOperations.add(operation);
-            operationsByToolName.put(operation.toolName(), operation);
         }
+        operationCatalog.replaceAll(eligibleOperations);
         toolSelector.setCandidates(eligibleOperations);
 
         Set<String> existingToolNames = new LinkedHashSet<>();
@@ -109,9 +120,10 @@ public class SwaggerMcpServerAdapter {
             existingToolNames.add(tool.name());
         }
 
-        SwaggerMcpProperties.SmartContext smartContext = properties.getSmartContext();
         if (smartContext.isEnabled() && smartContext.isGatewayToolEnabled()) {
             registerDiscoverTool(existingToolNames);
+            registerDescribeTool(existingToolNames);
+            registerListGroupsTool(existingToolNames);
             registerIntentInvokeTool(existingToolNames);
         }
 
@@ -131,7 +143,7 @@ public class SwaggerMcpServerAdapter {
     }
 
     public McpSchema.CallToolResult invokeTool(String toolName, Map<String, Object> arguments) {
-        OpenApiOperationDescriptor operation = operationsByToolName.get(toolName);
+        OpenApiOperationDescriptor operation = operationCatalog.findByToolName(toolName).orElse(null);
         if (operation == null) {
             return errorResult("Unknown tool: " + toolName);
         }
@@ -171,6 +183,13 @@ public class SwaggerMcpServerAdapter {
             logger.warn("Tool execution failed: {}", operation.toolName(), ex);
             return errorResult("Tool execution failed: " + ex.getMessage());
         }
+    }
+
+    private boolean isReservedMetaToolName(String toolName) {
+        return discoverToolName.equals(toolName)
+                || describeToolName.equals(toolName)
+                || listGroupsToolName.equals(toolName)
+                || invokeByIntentToolName.equals(toolName);
     }
 
     private void registerOperationTool(OpenApiOperationDescriptor operation) {
@@ -215,7 +234,80 @@ public class SwaggerMcpServerAdapter {
                 .build();
 
         mcpSyncServer.addTool(specification);
+        existingToolNames.add(discoverToolName);
         registeredToolNames.add(discoverToolName);
+    }
+
+    private void registerDescribeTool(Set<String> existingToolNames) {
+        if (existingToolNames.contains(describeToolName)) {
+            return;
+        }
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name(describeToolName)
+                .title("Describe API Tool Contract")
+                .description("Return the full OpenAPI-derived contract for one generated API tool")
+                .inputSchema(new McpSchema.JsonSchema(
+                        "object",
+                        describeInputSchemaProperties(),
+                        List.of("toolName"),
+                        Boolean.FALSE,
+                        null,
+                        null
+                ))
+                .annotations(new McpSchema.ToolAnnotations(
+                        "Describe API Tool",
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.FALSE
+                ))
+                .build();
+
+        McpServerFeatures.SyncToolSpecification specification = McpServerFeatures.SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> describeApiTool(request.arguments()))
+                .build();
+
+        mcpSyncServer.addTool(specification);
+        existingToolNames.add(describeToolName);
+        registeredToolNames.add(describeToolName);
+    }
+
+    private void registerListGroupsTool(Set<String> existingToolNames) {
+        if (existingToolNames.contains(listGroupsToolName)) {
+            return;
+        }
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name(listGroupsToolName)
+                .title("List API Tool Groups")
+                .description("Summarize the exposed API tool catalog by OpenAPI tag/group")
+                .inputSchema(new McpSchema.JsonSchema(
+                        "object",
+                        listGroupsInputSchemaProperties(),
+                        List.of(),
+                        Boolean.FALSE,
+                        null,
+                        null
+                ))
+                .annotations(new McpSchema.ToolAnnotations(
+                        "List API Groups",
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.FALSE
+                ))
+                .build();
+
+        McpServerFeatures.SyncToolSpecification specification = McpServerFeatures.SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> listApiGroups(request.arguments()))
+                .build();
+
+        mcpSyncServer.addTool(specification);
+        existingToolNames.add(listGroupsToolName);
+        registeredToolNames.add(listGroupsToolName);
     }
 
     private void registerIntentInvokeTool(Set<String> existingToolNames) {
@@ -250,7 +342,48 @@ public class SwaggerMcpServerAdapter {
                 .build();
 
         mcpSyncServer.addTool(specification);
+        existingToolNames.add(invokeByIntentToolName);
         registeredToolNames.add(invokeByIntentToolName);
+    }
+
+    McpSchema.CallToolResult describeApiTool(Map<String, Object> arguments) {
+        Map<String, Object> safeArguments = copyMap(arguments);
+        String toolName = asString(safeArguments.get("toolName"));
+        if (!StringUtils.hasText(toolName)) {
+            return errorResult("toolName is required");
+        }
+        OpenApiOperationDescriptor operation = operationCatalog.findByToolName(toolName).orElse(null);
+        if (operation == null) {
+            return errorResult("Unknown tool: " + toolName);
+        }
+        Map<String, Object> structured = describeOperation(operation);
+        return successResult(structured);
+    }
+
+    McpSchema.CallToolResult listApiGroups(Map<String, Object> arguments) {
+        Map<String, Object> safeArguments = copyMap(arguments);
+        int maxToolsPerGroup = Math.max(0, asInt(safeArguments.get("maxToolsPerGroup"), 5));
+
+        SwaggerMcpOperationCatalog.CatalogStats stats = operationCatalog.stats();
+        List<Map<String, Object>> groups = new ArrayList<>();
+        for (SwaggerMcpOperationCatalog.GroupSummary group : operationCatalog.summarizeGroups(maxToolsPerGroup)) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("name", group.name());
+            item.put("operationCount", group.operationCount());
+            item.put("readOnlyCount", group.readOnlyCount());
+            item.put("riskyCount", group.riskyCount());
+            item.put("methods", group.methods());
+            item.put("sampleTools", group.sampleTools());
+            groups.add(item);
+        }
+
+        Map<String, Object> structured = new LinkedHashMap<>();
+        structured.put("operationCount", stats.operationCount());
+        structured.put("groupCount", stats.groupCount());
+        structured.put("readOnlyCount", stats.readOnlyCount());
+        structured.put("riskyCount", stats.riskyCount());
+        structured.put("groups", groups);
+        return successResult(structured);
     }
 
     private McpSchema.CallToolResult discoverRelevantTools(Map<String, Object> arguments) {
@@ -520,10 +653,75 @@ public class SwaggerMcpServerAdapter {
         return result;
     }
 
+    private Map<String, Object> describeOperation(OpenApiOperationDescriptor operation) {
+        McpSchema.Tool tool = converter.convert(operation, properties);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("toolName", operation.toolName());
+        payload.put("operationId", operation.operationId());
+        payload.put("method", operation.httpMethod().name());
+        payload.put("path", operation.path());
+        payload.put("description", operation.description());
+        payload.put("tags", operation.tags());
+        payload.put("readOnly", operation.isReadOnly());
+        payload.put("idempotent", operation.isIdempotent());
+        payload.put("risky", operation.risky());
+        payload.put("confirmationRequired", operation.risky()
+                && properties.getSecurity().isRequireConfirmationForRiskyOperations());
+        payload.put("requiredArguments", tool.inputSchema().required() == null ? List.of() : tool.inputSchema().required());
+        Map<String, Object> inputProperties = tool.inputSchema().properties();
+        payload.put("inputSchema", mapOf(
+                "type", tool.inputSchema().type(),
+                "properties", inputProperties,
+                "required", tool.inputSchema().required(),
+                "additionalProperties", tool.inputSchema().additionalProperties()
+        ));
+        payload.put("parameters", describeParameters(operation, inputProperties));
+        payload.put("requestBody", describeRequestBody(operation, tool));
+        return payload;
+    }
+
+    private List<Map<String, Object>> describeParameters(
+            OpenApiOperationDescriptor operation,
+            Map<String, Object> inputProperties) {
+        List<Map<String, Object>> parameters = new ArrayList<>();
+        for (OpenApiParameterDescriptor parameter : operation.parameters()) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("name", parameter.name());
+            item.put("location", parameter.location().name().toLowerCase(Locale.ROOT));
+            item.put("required", parameter.required());
+            item.put("schema", inputProperties.get(parameter.name()));
+            parameters.add(item);
+        }
+        return parameters;
+    }
+
+    private Map<String, Object> describeRequestBody(OpenApiOperationDescriptor operation, McpSchema.Tool tool) {
+        if (operation.requestBodySchema() == null) {
+            return mapOf("required", false, "schema", null);
+        }
+        return mapOf(
+                "required", operation.requestBodyRequired(),
+                "argumentName", "body",
+                "schema", tool.inputSchema().properties().get("body")
+        );
+    }
+
     private Map<String, Object> discoverInputSchemaProperties() {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("query", mapOf("type", "string", "description", "Natural language intent"));
         properties.put("topK", mapOf("type", "integer", "description", "Number of tools to return"));
+        return properties;
+    }
+
+    private Map<String, Object> describeInputSchemaProperties() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("toolName", mapOf("type", "string", "description", "Generated API tool name to describe"));
+        return properties;
+    }
+
+    private Map<String, Object> listGroupsInputSchemaProperties() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("maxToolsPerGroup", mapOf("type", "integer", "description", "Maximum sample tool names per group; use 0 for counts only"));
         return properties;
     }
 

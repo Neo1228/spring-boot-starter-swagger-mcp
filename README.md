@@ -12,7 +12,8 @@ Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as M
 
 - Auto-discovery of OpenAPI operations from your running Spring app
 - Auto-registration of MCP tools for discovered API operations
-- Smart-context tools: `meta_discover_api_tools`, `meta_invoke_api_by_intent`
+- Smart-context tools: `meta_discover_api_tools`, `meta_describe_api_tool`, `meta_list_api_groups`, `meta_invoke_api_by_intent`
+- API catalog layer that lets MCP clients explore grouped API capabilities before invoking a tool
 - Rich MCP input schemas from OpenAPI constraints (required fields, enum, numeric/string/array/object limits, examples, deprecation hints)
 - Response optimization with projection/summarization controls
 - Execution guardrails: required argument validation, unresolved path-template protection, and safe `_headers` filtering
@@ -24,6 +25,7 @@ Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as M
 graph TD
     User([User / LLM Client]) <--> MCP[MCP Client / Claude Desktop]
     MCP <--> Bridge[Swagger MCP Bridge /starter/]
+    Bridge --> Catalog[Operation Catalog /groups + contracts/]
     Bridge <--> Docs[SpringDoc OpenAPI /v3/api-docs]
     Bridge <--> API[Your Spring Controller /hello]
 ```
@@ -138,6 +140,20 @@ swagger:
 4. Connect from an MCP client
 
 Generated tool names follow `<tool-name-prefix><operation-id>` (example: `api_gethello`).
+
+
+## MCP Client Workflow
+
+This starter exposes direct API tools and a small meta-tool layer so general MCP clients can work with large APIs without guessing tool names upfront:
+
+1. `meta_list_api_groups` summarizes the exposed API catalog by OpenAPI tag/group.
+2. `meta_discover_api_tools` finds relevant operations for a natural-language request.
+3. `meta_describe_api_tool` returns the selected tool's method/path, parameters, required arguments, request body schema, risk flags, and full MCP input schema.
+4. `meta_invoke_api_by_intent` can select and invoke the best matching operation when the client already has enough arguments.
+
+The configured `tool-name-prefix` is still applied, so the default generated names are `api_meta_list_api_groups`, `api_meta_discover_api_tools`, `api_meta_describe_api_tool`, and `api_meta_invoke_api_by_intent`.
+
+For larger APIs, set `swagger.mcp.smart-context.gateway-only=true` to expose only this gateway/meta layer instead of registering every operation as a top-level MCP tool.
 
 ## Use It Before Public Release (Local Development Install)
 

@@ -71,6 +71,12 @@ public class SwaggerMcpAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    public SwaggerMcpOperationCatalog swaggerMcpOperationCatalog() {
+        return new SwaggerMcpOperationCatalog();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public SwaggerMcpResponseOptimizer swaggerMcpResponseOptimizer(ObjectMapper objectMapper, SwaggerMcpProperties properties) {
         return new SwaggerMcpResponseOptimizer(objectMapper, properties);
     }
@@ -88,6 +94,7 @@ public class SwaggerMcpAutoConfiguration {
             McpSyncServer mcpSyncServer,
             OpenApiToMcpToolConverter converter,
             SwaggerMcpToolSelector toolSelector,
+            SwaggerMcpOperationCatalog operationCatalog,
             SwaggerMcpResponseOptimizer responseOptimizer,
             SwaggerMcpSecurityPolicy securityPolicy,
             SwaggerMcpProperties properties,
@@ -98,6 +105,7 @@ public class SwaggerMcpAutoConfiguration {
                 mcpSyncServer,
                 converter,
                 toolSelector,
+                operationCatalog,
                 responseOptimizer,
                 securityPolicy,
                 properties,
