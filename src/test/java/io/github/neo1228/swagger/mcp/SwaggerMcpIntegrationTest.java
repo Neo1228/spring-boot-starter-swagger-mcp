@@ -69,7 +69,10 @@ class SwaggerMcpIntegrationTest {
                     "api_createorder",
                     "api_meta_discover_api_tools",
                     "api_meta_describe_api_tool",
-                    "api_meta_list_api_groups"
+                    "api_meta_list_api_groups",
+                    "api_meta_plan_api_workflow",
+                    "api_meta_invoke_api_workflow",
+                    "api_meta_invoke_api_by_intent"
             );
         });
     }
@@ -133,6 +136,111 @@ class SwaggerMcpIntegrationTest {
                 .containsEntry("readOnly", true)
                 .containsKey("inputSchema");
         assertThat(descriptionPayload.get("requiredArguments")).isInstanceOf(List.class);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void plansApiWorkflowFromCatalog() {
+        await().atMost(15, SECONDS).untilAsserted(() ->
+                assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList())
+                        .contains("api_meta_plan_api_workflow", "api_createorder", "api_getorder"));
+
+        McpSchema.CallToolResult result = adapter.planApiWorkflow(Map.of("goal", "create and read order", "topK", 5));
+
+        assertThat(result.isError()).isFalse();
+        Map<String, Object> payload = (Map<String, Object>) result.structuredContent();
+        assertThat(payload).containsEntry("goal", "create and read order");
+        assertThat((Integer) payload.get("candidateCount")).isGreaterThan(0);
+        assertThat((List<Map<String, Object>>) payload.get("steps"))
+                .extracting(step -> step.get("toolName"))
+                .contains("api_createorder", "api_getorder");
+        assertThat((Map<String, Object>) payload.get("executionModel"))
+                .containsEntry("toolName", "api_meta_invoke_api_workflow");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void dryRunsApiWorkflowWithoutExecutingSteps() {
+        await().atMost(15, SECONDS).untilAsserted(() ->
+                assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList()).contains("api_gethello"));
+
+        McpSchema.CallToolResult result = adapter.invokeApiWorkflow(Map.of(
+                "dryRun", true,
+                "steps", List.of(Map.of(
+                        "id", "hello",
+                        "toolName", "api_gethello",
+                        "arguments", Map.of("name", "Neo")
+                ))
+        ));
+
+        assertThat(result.isError()).isFalse();
+        Map<String, Object> payload = (Map<String, Object>) result.structuredContent();
+        assertThat(payload)
+                .containsEntry("dryRun", true)
+                .containsEntry("success", true)
+                .containsEntry("stepCount", 1);
+        List<Map<String, Object>> steps = (List<Map<String, Object>>) payload.get("steps");
+        assertThat(steps.get(0))
+                .containsEntry("id", "hello")
+                .containsEntry("toolName", "api_gethello")
+                .containsEntry("wouldExecute", true);
+        assertThat((Map<String, Object>) steps.get(0).get("arguments")).containsEntry("name", "Neo");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void executesApiWorkflowWithJsonPathInterpolation() {
+        await().atMost(15, SECONDS).untilAsserted(() ->
+                assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList())
+                        .contains("api_createorder", "api_getorder"));
+
+        McpSchema.CallToolResult result = adapter.invokeApiWorkflow(Map.of(
+                "dryRun", false,
+                "steps", List.of(
+                        Map.of(
+                                "id", "create",
+                                "toolName", "api_createorder",
+                                "arguments", Map.of(
+                                        "body", Map.of("id", "order-1", "item", "shoe"),
+                                        "_confirm", "CONFIRM"
+                                )
+                        ),
+                        Map.of(
+                                "id", "read",
+                                "toolName", "api_getorder",
+                                "arguments", Map.of("orderId", "${create:$.order.id}")
+                        )
+                )
+        ));
+
+        assertThat(result.isError()).isFalse();
+        Map<String, Object> payload = (Map<String, Object>) result.structuredContent();
+        assertThat(payload)
+                .containsEntry("dryRun", false)
+                .containsEntry("success", true)
+                .containsEntry("stepCount", 2);
+        List<Map<String, Object>> steps = (List<Map<String, Object>>) payload.get("steps");
+        assertThat((Map<String, Object>) steps.get(1).get("arguments")).containsEntry("orderId", "order-1");
+        assertThat((Map<String, Object>) steps.get(1).get("structuredContent")).containsEntry("orderId", "order-1");
+    }
+
+    @Test
+    void blocksRecursiveMetaToolInvocationInWorkflow() {
+        await().atMost(15, SECONDS).untilAsserted(() ->
+                assertThat(mcpSyncServer.listTools().stream().map(McpSchema.Tool::name).toList())
+                        .contains("api_meta_describe_api_tool", "api_meta_invoke_api_workflow"));
+
+        McpSchema.CallToolResult result = adapter.invokeApiWorkflow(Map.of(
+                "steps", List.of(Map.of(
+                        "id", "meta",
+                        "toolName", "api_meta_describe_api_tool",
+                        "arguments", Map.of("toolName", "api_gethello")
+                ))
+        ));
+
+        assertThat(result.isError()).isTrue();
+        assertThat(((McpSchema.TextContent) result.content().get(0)).text())
+                .contains("Workflow steps cannot invoke meta tools");
     }
 
     @Test
@@ -297,4 +405,3 @@ class SwaggerMcpIntegrationTest {
     static class TestApp {
     }
 }
-

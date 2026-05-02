@@ -1,6 +1,8 @@
 package io.github.neo1228.swagger.mcp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.PathNotFoundException;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -36,11 +38,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SwaggerMcpServerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(SwaggerMcpServerAdapter.class);
     private static final String ARGUMENTS_FIELD = "arguments";
+    private static final String STEPS_FIELD = "steps";
+    private static final Pattern WORKFLOW_TEMPLATE = Pattern.compile("\\$\\{([A-Za-z0-9_-]+):(.*?)}");
 
     private final McpSyncServer mcpSyncServer;
     private final OpenApiToMcpToolConverter converter;
@@ -56,6 +62,8 @@ public class SwaggerMcpServerAdapter {
     private final String discoverToolName;
     private final String describeToolName;
     private final String listGroupsToolName;
+    private final String planWorkflowToolName;
+    private final String invokeWorkflowToolName;
     private final String invokeByIntentToolName;
 
     public SwaggerMcpServerAdapter(
@@ -93,6 +101,8 @@ public class SwaggerMcpServerAdapter {
         this.discoverToolName = converter.toToolName("meta_discover_api_tools", properties.getToolNamePrefix());
         this.describeToolName = converter.toToolName("meta_describe_api_tool", properties.getToolNamePrefix());
         this.listGroupsToolName = converter.toToolName("meta_list_api_groups", properties.getToolNamePrefix());
+        this.planWorkflowToolName = converter.toToolName("meta_plan_api_workflow", properties.getToolNamePrefix());
+        this.invokeWorkflowToolName = converter.toToolName("meta_invoke_api_workflow", properties.getToolNamePrefix());
         this.invokeByIntentToolName = converter.toToolName("meta_invoke_api_by_intent", properties.getToolNamePrefix());
     }
 
@@ -124,6 +134,8 @@ public class SwaggerMcpServerAdapter {
             registerDiscoverTool(existingToolNames);
             registerDescribeTool(existingToolNames);
             registerListGroupsTool(existingToolNames);
+            registerPlanWorkflowTool(existingToolNames);
+            registerInvokeWorkflowTool(existingToolNames);
             registerIntentInvokeTool(existingToolNames);
         }
 
@@ -189,6 +201,8 @@ public class SwaggerMcpServerAdapter {
         return discoverToolName.equals(toolName)
                 || describeToolName.equals(toolName)
                 || listGroupsToolName.equals(toolName)
+                || planWorkflowToolName.equals(toolName)
+                || invokeWorkflowToolName.equals(toolName)
                 || invokeByIntentToolName.equals(toolName);
     }
 
@@ -310,6 +324,78 @@ public class SwaggerMcpServerAdapter {
         registeredToolNames.add(listGroupsToolName);
     }
 
+    private void registerPlanWorkflowTool(Set<String> existingToolNames) {
+        if (existingToolNames.contains(planWorkflowToolName)) {
+            return;
+        }
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name(planWorkflowToolName)
+                .title("Plan API Workflow")
+                .description("Create a deterministic multi-step API workflow plan from the exposed OpenAPI tool catalog")
+                .inputSchema(new McpSchema.JsonSchema(
+                        "object",
+                        planWorkflowInputSchemaProperties(),
+                        List.of("goal"),
+                        Boolean.FALSE,
+                        null,
+                        null
+                ))
+                .annotations(new McpSchema.ToolAnnotations(
+                        "Plan API Workflow",
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.TRUE,
+                        Boolean.FALSE,
+                        Boolean.FALSE
+                ))
+                .build();
+
+        McpServerFeatures.SyncToolSpecification specification = McpServerFeatures.SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> planApiWorkflow(request.arguments()))
+                .build();
+
+        mcpSyncServer.addTool(specification);
+        existingToolNames.add(planWorkflowToolName);
+        registeredToolNames.add(planWorkflowToolName);
+    }
+
+    private void registerInvokeWorkflowTool(Set<String> existingToolNames) {
+        if (existingToolNames.contains(invokeWorkflowToolName)) {
+            return;
+        }
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name(invokeWorkflowToolName)
+                .title("Invoke API Workflow")
+                .description("Dry-run or execute multiple generated API tools sequentially with JSONPath-based step interpolation")
+                .inputSchema(new McpSchema.JsonSchema(
+                        "object",
+                        invokeWorkflowInputSchemaProperties(),
+                        List.of(STEPS_FIELD),
+                        Boolean.FALSE,
+                        null,
+                        null
+                ))
+                .annotations(new McpSchema.ToolAnnotations(
+                        "Invoke API Workflow",
+                        Boolean.FALSE,
+                        Boolean.FALSE,
+                        Boolean.FALSE,
+                        Boolean.FALSE,
+                        Boolean.FALSE
+                ))
+                .build();
+
+        McpServerFeatures.SyncToolSpecification specification = McpServerFeatures.SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> invokeApiWorkflow(request.arguments()))
+                .build();
+
+        mcpSyncServer.addTool(specification);
+        existingToolNames.add(invokeWorkflowToolName);
+        registeredToolNames.add(invokeWorkflowToolName);
+    }
+
     private void registerIntentInvokeTool(Set<String> existingToolNames) {
         if (existingToolNames.contains(invokeByIntentToolName)) {
             return;
@@ -384,6 +470,163 @@ public class SwaggerMcpServerAdapter {
         structured.put("riskyCount", stats.riskyCount());
         structured.put("groups", groups);
         return successResult(structured);
+    }
+
+    McpSchema.CallToolResult planApiWorkflow(Map<String, Object> arguments) {
+        Map<String, Object> safeArguments = copyMap(arguments);
+        String goal = asString(safeArguments.get("goal"));
+        if (!StringUtils.hasText(goal)) {
+            return errorResult("goal is required");
+        }
+        int requestedTopK = asInt(safeArguments.get("topK"), properties.getSmartContext().getDefaultTopK());
+        int topK = Math.max(1, requestedTopK);
+
+        List<SwaggerMcpToolSelector.ScoredTool> candidates = toolSelector.select(goal, topK);
+        List<Map<String, Object>> steps = new ArrayList<>();
+        int index = 1;
+        for (SwaggerMcpToolSelector.ScoredTool candidate : candidates) {
+            OpenApiOperationDescriptor operation = candidate.operation();
+            Map<String, Object> contract = describeOperation(operation);
+            Map<String, Object> step = new LinkedHashMap<>();
+            step.put("stepId", "step" + index++);
+            step.put("toolName", operation.toolName());
+            step.put("operationId", operation.operationId());
+            step.put("method", operation.httpMethod().name());
+            step.put("path", operation.path());
+            step.put("description", operation.description());
+            step.put("score", candidate.score());
+            step.put("readOnly", operation.isReadOnly());
+            step.put("idempotent", operation.isIdempotent());
+            step.put("risky", operation.risky());
+            step.put("requiredArguments", contract.get("requiredArguments"));
+            step.put("inputSchema", contract.get("inputSchema"));
+            steps.add(step);
+        }
+
+        Map<String, Object> structured = new LinkedHashMap<>();
+        structured.put("goal", goal);
+        structured.put("candidateCount", steps.size());
+        structured.put("steps", steps);
+        structured.put("executionModel", mapOf(
+                "toolName", invokeWorkflowToolName,
+                "defaultDryRun", true,
+                "order", "Steps are validated and then executed sequentially when dryRun=false",
+                "arguments", "Each step accepts {id, toolName, arguments, continueOnError}",
+                "interpolation", "Use ${stepId:$.json.path} in later step arguments to read prior structuredContent",
+                "safety", "Meta tools cannot be invoked recursively; risky operations still require _confirm"
+        ));
+        return successResult(structured);
+    }
+
+    McpSchema.CallToolResult invokeApiWorkflow(Map<String, Object> arguments) {
+        Map<String, Object> safeArguments = copyMap(arguments);
+        Object rawSteps = safeArguments.get(STEPS_FIELD);
+        if (!(rawSteps instanceof List<?> rawStepList) || rawStepList.isEmpty()) {
+            return errorResult("steps must be a non-empty array");
+        }
+
+        List<Map<String, Object>> steps = new ArrayList<>();
+        for (Object rawStep : rawStepList) {
+            if (!(rawStep instanceof Map<?, ?> rawStepMap)) {
+                return errorResult("Each workflow step must be an object");
+            }
+            steps.add(copyStringKeyMap(rawStepMap));
+        }
+
+        boolean dryRun = asBoolean(safeArguments.get("dryRun"), true);
+        boolean continueOnError = asBoolean(safeArguments.get("continueOnError"), false);
+        List<Map<String, Object>> stepResults = new ArrayList<>();
+        Map<String, Object> workflowContext = new LinkedHashMap<>();
+        Set<String> stepIds = new LinkedHashSet<>();
+        boolean success = true;
+
+        for (int i = 0; i < steps.size(); i++) {
+            Map<String, Object> step = steps.get(i);
+            String id = workflowStepId(step, i);
+            if (!stepIds.add(id)) {
+                return errorResult("Duplicate workflow step id: " + id);
+            }
+            String toolName = asString(step.get("toolName"));
+            if (!StringUtils.hasText(toolName)) {
+                return errorResult("steps[" + i + "].toolName is required");
+            }
+            if (isReservedMetaToolName(toolName)) {
+                return errorResult("Workflow steps cannot invoke meta tools: " + toolName);
+            }
+            OpenApiOperationDescriptor operation = operationCatalog.findByToolName(toolName).orElse(null);
+            if (operation == null) {
+                return errorResult("Unknown workflow step tool: " + toolName);
+            }
+
+            Map<String, Object> originalArguments = stepArguments(step);
+            Map<String, Object> resolvedArguments;
+            try {
+                resolvedArguments = dryRun ? originalArguments : resolveWorkflowArguments(originalArguments, workflowContext);
+            }
+            catch (IllegalArgumentException ex) {
+                return errorResult("Failed to resolve workflow step '" + id + "': " + ex.getMessage());
+            }
+
+            Map<String, Object> stepResult = new LinkedHashMap<>();
+            stepResult.put("id", id);
+            stepResult.put("toolName", toolName);
+            stepResult.put("method", operation.httpMethod().name());
+            stepResult.put("path", operation.path());
+            stepResult.put("risky", operation.risky());
+            stepResult.put("arguments", resolvedArguments);
+
+            if (dryRun) {
+                Map<String, Object> contract = describeOperation(operation);
+                stepResult.put("readOnly", operation.isReadOnly());
+                stepResult.put("requiredArguments", contract.get("requiredArguments"));
+                String argumentValidation = validateRequiredArguments(operation, resolvedArguments);
+                String executionValidation = securityPolicy.validateExecution(operation, resolvedArguments).orElse(null);
+                String validationError = argumentValidation != null ? argumentValidation : executionValidation;
+                stepResult.put("wouldExecute", validationError == null);
+                if (validationError != null) {
+                    success = false;
+                    stepResult.put("isError", true);
+                    stepResult.put("validationError", validationError);
+                }
+                stepResults.add(stepResult);
+                if (validationError != null) {
+                    boolean stepContinueOnError = asBoolean(step.get("continueOnError"), continueOnError);
+                    if (!stepContinueOnError) {
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            McpSchema.CallToolResult delegatedResult = invokeTool(toolName, resolvedArguments);
+            boolean stepError = Boolean.TRUE.equals(delegatedResult.isError());
+            stepResult.put("isError", stepError);
+            stepResult.put("text", firstText(delegatedResult));
+            stepResult.put("structuredContent", delegatedResult.structuredContent());
+            stepResults.add(stepResult);
+            workflowContext.put(id, delegatedResult.structuredContent() != null
+                    ? delegatedResult.structuredContent()
+                    : firstText(delegatedResult));
+
+            if (stepError) {
+                success = false;
+                boolean stepContinueOnError = asBoolean(step.get("continueOnError"), continueOnError);
+                if (!stepContinueOnError) {
+                    break;
+                }
+            }
+        }
+
+        Map<String, Object> structured = new LinkedHashMap<>();
+        structured.put("dryRun", dryRun);
+        structured.put("stepCount", stepResults.size());
+        structured.put("success", success);
+        structured.put("steps", stepResults);
+        return McpSchema.CallToolResult.builder()
+                .isError(!success)
+                .addTextContent(toJsonText(structured))
+                .structuredContent(structured)
+                .build();
     }
 
     private McpSchema.CallToolResult discoverRelevantTools(Map<String, Object> arguments) {
@@ -725,6 +968,40 @@ public class SwaggerMcpServerAdapter {
         return properties;
     }
 
+    private Map<String, Object> planWorkflowInputSchemaProperties() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("goal", mapOf("type", "string", "description", "Natural language workflow goal"));
+        properties.put("topK", mapOf("type", "integer", "description", "Number of candidate API steps to include"));
+        return properties;
+    }
+
+    private Map<String, Object> invokeWorkflowInputSchemaProperties() {
+        Map<String, Object> stepProperties = new LinkedHashMap<>();
+        stepProperties.put("id", mapOf("type", "string", "description", "Optional stable step id for later interpolation"));
+        stepProperties.put("toolName", mapOf("type", "string", "description", "Generated API tool name to execute"));
+        stepProperties.put(ARGUMENTS_FIELD, mapOf(
+                "type", "object",
+                "additionalProperties", true,
+                "description", "Arguments for the generated API tool. Supports ${stepId:$.json.path} references."
+        ));
+        stepProperties.put("continueOnError", mapOf("type", "boolean", "description", "Continue workflow after this step fails"));
+
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("dryRun", mapOf("type", "boolean", "description", "Validate and resolve steps without executing; defaults to true"));
+        properties.put("continueOnError", mapOf("type", "boolean", "description", "Continue after failed steps by default"));
+        properties.put(STEPS_FIELD, mapOf(
+                "type", "array",
+                "description", "Sequential API workflow steps",
+                "items", mapOf(
+                        "type", "object",
+                        "properties", stepProperties,
+                        "required", List.of("toolName"),
+                        "additionalProperties", false
+                )
+        ));
+        return properties;
+    }
+
     private Map<String, Object> invokeByIntentSchemaProperties() {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("query", mapOf("type", "string", "description", "Natural language intent"));
@@ -748,6 +1025,97 @@ public class SwaggerMcpServerAdapter {
             delegated.put("_confirm", arguments.get("_confirm"));
         }
         return delegated;
+    }
+
+    private String workflowStepId(Map<String, Object> step, int index) {
+        String explicitId = asString(step.get("id"));
+        if (StringUtils.hasText(explicitId)) {
+            return explicitId;
+        }
+        return "step" + (index + 1);
+    }
+
+    private Map<String, Object> stepArguments(Map<String, Object> step) {
+        Object rawArguments = step.get(ARGUMENTS_FIELD);
+        if (!(rawArguments instanceof Map<?, ?> rawArgumentsMap)) {
+            return new LinkedHashMap<>();
+        }
+        return copyStringKeyMap(rawArgumentsMap);
+    }
+
+    private Map<String, Object> resolveWorkflowArguments(
+            Map<String, Object> arguments,
+            Map<String, Object> workflowContext) {
+        Map<String, Object> resolved = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : arguments.entrySet()) {
+            resolved.put(entry.getKey(), resolveWorkflowValue(entry.getValue(), workflowContext));
+        }
+        return resolved;
+    }
+
+    private Object resolveWorkflowValue(Object value, Map<String, Object> workflowContext) {
+        if (value instanceof Map<?, ?> rawMap) {
+            Map<String, Object> resolved = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+                if (entry.getKey() != null) {
+                    resolved.put(String.valueOf(entry.getKey()), resolveWorkflowValue(entry.getValue(), workflowContext));
+                }
+            }
+            return resolved;
+        }
+        if (value instanceof List<?> rawList) {
+            List<Object> resolved = new ArrayList<>();
+            for (Object item : rawList) {
+                resolved.add(resolveWorkflowValue(item, workflowContext));
+            }
+            return resolved;
+        }
+        if (value instanceof String stringValue) {
+            return resolveWorkflowTemplate(stringValue, workflowContext);
+        }
+        return value;
+    }
+
+    private Object resolveWorkflowTemplate(String value, Map<String, Object> workflowContext) {
+        Matcher exactMatcher = WORKFLOW_TEMPLATE.matcher(value);
+        if (exactMatcher.matches()) {
+            return readWorkflowContext(exactMatcher.group(1), exactMatcher.group(2), workflowContext);
+        }
+
+        Matcher matcher = WORKFLOW_TEMPLATE.matcher(value);
+        StringBuffer resolved = new StringBuffer();
+        while (matcher.find()) {
+            Object replacement = readWorkflowContext(matcher.group(1), matcher.group(2), workflowContext);
+            matcher.appendReplacement(resolved, Matcher.quoteReplacement(String.valueOf(replacement)));
+        }
+        matcher.appendTail(resolved);
+        return resolved.toString();
+    }
+
+    private Object readWorkflowContext(String stepId, String jsonPath, Map<String, Object> workflowContext) {
+        if (!workflowContext.containsKey(stepId)) {
+            throw new IllegalArgumentException("Unknown workflow step reference: " + stepId);
+        }
+        try {
+            String json = objectMapper.writeValueAsString(workflowContext.get(stepId));
+            return JsonPath.read(json, jsonPath);
+        }
+        catch (PathNotFoundException ex) {
+            throw new IllegalArgumentException("No value matched workflow reference: ${" + stepId + ":" + jsonPath + "}");
+        }
+        catch (Exception ex) {
+            throw new IllegalArgumentException("Invalid workflow reference ${" + stepId + ":" + jsonPath + "}: " + ex.getMessage());
+        }
+    }
+
+    private Map<String, Object> copyStringKeyMap(Map<?, ?> source) {
+        Map<String, Object> copied = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : source.entrySet()) {
+            if (entry.getKey() != null) {
+                copied.put(String.valueOf(entry.getKey()), entry.getValue());
+            }
+        }
+        return copied;
     }
 
     private McpSchema.CallToolResult successResult(Object structuredContent) {
@@ -825,6 +1193,16 @@ public class SwaggerMcpServerAdapter {
         }
     }
 
+    private boolean asBoolean(Object value, boolean defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Boolean boolValue) {
+            return boolValue;
+        }
+        return Boolean.parseBoolean(String.valueOf(value));
+    }
+
     private Map<String, Object> mapOf(Object... keyValuePairs) {
         Map<String, Object> map = new LinkedHashMap<>();
         for (int i = 0; i + 1 < keyValuePairs.length; i += 2) {
@@ -833,4 +1211,3 @@ public class SwaggerMcpServerAdapter {
         return map;
     }
 }
-
