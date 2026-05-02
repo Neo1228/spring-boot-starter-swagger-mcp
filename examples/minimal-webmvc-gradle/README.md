@@ -1,8 +1,24 @@
-# Minimal WebMVC Example (Gradle)
+# Swagger MCP Bridge Minimal WebMVC Example
 
-This example shows how a separate Spring Boot project can consume `spring-boot-starter-swagger-mcp` as a dependency.
+A tiny Spring Boot WebMVC consumer for **Swagger MCP Bridge**.
 
-## Prerequisite (for local testing)
+It installs the starter from this repository into `mavenLocal()`, loads the unchanged consumer coordinates
+`io.github.neo1228:spring-boot-starter-swagger-mcp:0.1.0-SNAPSHOT`, and exposes SpringDoc OpenAPI operations as MCP tools.
+
+## What this example proves
+
+- A normal Spring Boot 3.5.x WebMVC application can consume the bridge as a starter.
+- SpringDoc's `/v3/api-docs` document is converted into MCP tool metadata at startup.
+- The generated MCP endpoint stays on the standard streamable HTTP path: `/mcp`.
+- Tool names keep the configured `api_` prefix, so `getHello` becomes `api_gethello`.
+
+## Requirements
+
+- Java 17 or newer
+- The repository root build available locally
+- Gradle wrapper included in this example
+
+## Install the starter locally
 
 From the repository root:
 
@@ -10,16 +26,40 @@ From the repository root:
 ./gradlew publishToMavenLocal
 ```
 
-This installs `io.github.neo1228:spring-boot-starter-swagger-mcp:0.1.0-SNAPSHOT` into your local Maven cache.
+This publishes the current snapshot to your local Maven cache:
 
-## Run
+```text
+io.github.neo1228:spring-boot-starter-swagger-mcp:0.1.0-SNAPSHOT
+```
+
+## Run the example
+
+From this directory:
 
 ```bash
 ./gradlew bootRun
 ```
 
-## Verify
+## Verify manually
 
-1. OpenAPI document: `http://localhost:8080/v3/api-docs`
-2. MCP endpoint: `http://localhost:8080/mcp`
-3. Generated tool example: `api_gethello`
+After the application starts on `localhost:8080`:
+
+1. OpenAPI document: <http://localhost:8080/v3/api-docs>
+2. Sample API operation: <http://localhost:8080/hello?name=Bridge>
+3. MCP streamable HTTP endpoint: <http://localhost:8080/mcp>
+4. Expected generated tool name: `api_gethello`
+
+## Key files
+
+- `build.gradle.kts` — consumes the local snapshot starter and pins the same Spring Boot / SpringDoc / Spring AI line as the root project.
+- `src/main/resources/application.yml` — enables Swagger MCP Bridge and configures the MCP endpoint.
+- `src/main/java/com/example/minimal/HelloController.java` — exposes one annotated API operation for tool generation.
+
+## Notes for maintainers
+
+Keep this example in sync whenever the root project changes:
+
+- starter version or Maven coordinates
+- Spring Boot / SpringDoc / Spring AI compatibility line
+- MCP endpoint defaults or property names
+- public project name and README branding

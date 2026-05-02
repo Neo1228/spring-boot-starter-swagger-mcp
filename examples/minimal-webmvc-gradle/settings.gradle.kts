@@ -1,1 +1,1 @@
-rootProject.name = "minimal-webmvc-gradle"
+rootProject.name = "swagger-mcp-bridge-minimal-webmvc"

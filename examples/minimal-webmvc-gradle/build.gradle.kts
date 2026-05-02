@@ -6,6 +6,7 @@ plugins {
 
 group = "com.example"
 version = "0.0.1-SNAPSHOT"
+description = "Minimal WebMVC consumer for Swagger MCP Bridge"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -33,4 +34,9 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+    options.release.set(17)
 }
