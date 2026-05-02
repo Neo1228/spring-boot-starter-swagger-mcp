@@ -48,6 +48,16 @@
       "description": "Base URL used for internal loopback HTTP execution."
     },
     {
+      "name": "swagger.mcp.execution.allowed-argument-headers",
+      "type": "java.util.Set<java.lang.String>",
+      "description": "Optional allowlist for headers accepted from the _headers tool argument. Empty means all non-blocked headers are accepted."
+    },
+    {
+      "name": "swagger.mcp.execution.blocked-argument-headers",
+      "type": "java.util.Set<java.lang.String>",
+      "description": "Case-insensitive header denylist for the _headers tool argument. Defaults block hop-by-hop and transport-sensitive headers such as Host and Content-Length."
+    },
+    {
       "name": "swagger.mcp.smart-context.enabled",
       "type": "java.lang.Boolean",
       "description": "Enable smart context tool selection."
@@ -84,4 +94,3 @@
     }
   ]
 }
-

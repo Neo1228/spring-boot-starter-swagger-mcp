@@ -149,6 +149,7 @@ public class OpenApiToMcpToolConverter {
         if (schema.getNullable() != null) {
             jsonSchema.put("nullable", schema.getNullable());
         }
+        addOpenApiSchemaMetadata(schema, jsonSchema);
 
         if (schema.getProperties() != null && !schema.getProperties().isEmpty()) {
             Map<String, Object> properties = new LinkedHashMap<>();
@@ -195,6 +196,46 @@ public class OpenApiToMcpToolConverter {
             }
         }
         return jsonSchema;
+    }
+
+    private void addOpenApiSchemaMetadata(Schema<?> schema, Map<String, Object> jsonSchema) {
+        putIfPresent(jsonSchema, "minimum", schema.getMinimum());
+        putIfPresent(jsonSchema, "maximum", schema.getMaximum());
+        putExclusiveBoundary(jsonSchema, "exclusiveMinimum", schema.getExclusiveMinimumValue(), schema.getExclusiveMinimum());
+        putExclusiveBoundary(jsonSchema, "exclusiveMaximum", schema.getExclusiveMaximumValue(), schema.getExclusiveMaximum());
+        putIfPresent(jsonSchema, "multipleOf", schema.getMultipleOf());
+        putIfPresent(jsonSchema, "minLength", schema.getMinLength());
+        putIfPresent(jsonSchema, "maxLength", schema.getMaxLength());
+        putIfPresent(jsonSchema, "pattern", schema.getPattern());
+        putIfPresent(jsonSchema, "minItems", schema.getMinItems());
+        putIfPresent(jsonSchema, "maxItems", schema.getMaxItems());
+        putIfPresent(jsonSchema, "uniqueItems", schema.getUniqueItems());
+        putIfPresent(jsonSchema, "minProperties", schema.getMinProperties());
+        putIfPresent(jsonSchema, "maxProperties", schema.getMaxProperties());
+        putIfPresent(jsonSchema, "readOnly", schema.getReadOnly());
+        putIfPresent(jsonSchema, "writeOnly", schema.getWriteOnly());
+        putIfPresent(jsonSchema, "deprecated", schema.getDeprecated());
+        if (schema.getExampleSetFlag()) {
+            jsonSchema.put("example", schema.getExample());
+        }
+        if (schema.getExamples() != null && !schema.getExamples().isEmpty()) {
+            jsonSchema.put("examples", new ArrayList<>(schema.getExamples()));
+        }
+    }
+
+    private void putExclusiveBoundary(Map<String, Object> target, String key, Object exclusiveValue, Boolean exclusiveFlag) {
+        if (exclusiveValue != null) {
+            target.put(key, exclusiveValue);
+        }
+        else {
+            putIfPresent(target, key, exclusiveFlag);
+        }
+    }
+
+    private void putIfPresent(Map<String, Object> target, String key, Object value) {
+        if (value != null) {
+            target.put(key, value);
+        }
     }
 
     private void addComposed(String key, Collection<Schema> source, Map<String, Object> target) {

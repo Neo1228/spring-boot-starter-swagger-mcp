@@ -104,6 +104,17 @@ public class SwaggerMcpProperties {
         private Duration readTimeout = Duration.ofSeconds(30);
         private boolean copyIncomingAuthorizationHeader = true;
         private boolean copyIncomingCookieHeader = false;
+        private Set<String> allowedArgumentHeaders = new LinkedHashSet<>();
+        private Set<String> blockedArgumentHeaders = new LinkedHashSet<>(Set.of(
+                "host",
+                "connection",
+                "content-length",
+                "transfer-encoding",
+                "te",
+                "trailer",
+                "upgrade",
+                "expect"
+        ));
         private Map<String, String> defaultHeaders = new LinkedHashMap<>();
 
         public String getBaseUrl() {
@@ -144,6 +155,22 @@ public class SwaggerMcpProperties {
 
         public void setCopyIncomingCookieHeader(boolean copyIncomingCookieHeader) {
             this.copyIncomingCookieHeader = copyIncomingCookieHeader;
+        }
+
+        public Set<String> getAllowedArgumentHeaders() {
+            return allowedArgumentHeaders;
+        }
+
+        public void setAllowedArgumentHeaders(Set<String> allowedArgumentHeaders) {
+            this.allowedArgumentHeaders = allowedArgumentHeaders;
+        }
+
+        public Set<String> getBlockedArgumentHeaders() {
+            return blockedArgumentHeaders;
+        }
+
+        public void setBlockedArgumentHeaders(Set<String> blockedArgumentHeaders) {
+            this.blockedArgumentHeaders = blockedArgumentHeaders;
         }
 
         public Map<String, String> getDefaultHeaders() {

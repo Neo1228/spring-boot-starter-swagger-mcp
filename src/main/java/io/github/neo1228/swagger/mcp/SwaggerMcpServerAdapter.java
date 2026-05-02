@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -137,8 +138,15 @@ public class SwaggerMcpServerAdapter {
         Map<String, Object> safeArguments = copyMap(arguments);
         securityPolicy.auditStart(operation, safeArguments);
         try {
+            String argumentValidation = validateRequiredArguments(operation, safeArguments);
+            if (argumentValidation != null) {
+                securityPolicy.auditEnd(operation, false, 400);
+                return errorResult(argumentValidation);
+            }
+
             var validationResult = securityPolicy.validateExecution(operation, safeArguments);
             if (validationResult.isPresent()) {
+                securityPolicy.auditEnd(operation, false, 403);
                 return errorResult(validationResult.get());
             }
 
@@ -379,8 +387,34 @@ public class SwaggerMcpServerAdapter {
             if (entry.getKey() == null || entry.getValue() == null) {
                 continue;
             }
-            headers.set(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+            String headerName = String.valueOf(entry.getKey()).trim();
+            if (!StringUtils.hasText(headerName) || !isArgumentHeaderAllowed(headerName)) {
+                continue;
+            }
+            headers.set(headerName, String.valueOf(entry.getValue()));
         }
+    }
+
+    private boolean isArgumentHeaderAllowed(String headerName) {
+        String normalized = headerName.toLowerCase(Locale.ROOT);
+        Set<String> allowedHeaders = properties.getExecution().getAllowedArgumentHeaders();
+        if (allowedHeaders != null && !allowedHeaders.isEmpty() && !containsIgnoreCase(allowedHeaders, normalized)) {
+            return false;
+        }
+        Set<String> blockedHeaders = properties.getExecution().getBlockedArgumentHeaders();
+        return blockedHeaders == null || !containsIgnoreCase(blockedHeaders, normalized);
+    }
+
+    private boolean containsIgnoreCase(Collection<String> candidates, String normalizedValue) {
+        if (candidates == null || candidates.isEmpty()) {
+            return false;
+        }
+        for (String candidate : candidates) {
+            if (candidate != null && candidate.trim().toLowerCase(Locale.ROOT).equals(normalizedValue)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void copyIncomingHeaders(HttpHeaders headers) {
@@ -404,6 +438,32 @@ public class SwaggerMcpServerAdapter {
                 headers.set(HttpHeaders.COOKIE, cookie);
             }
         }
+    }
+
+    private String validateRequiredArguments(OpenApiOperationDescriptor operation, Map<String, Object> arguments) {
+        List<String> missing = new ArrayList<>();
+        for (OpenApiParameterDescriptor parameter : operation.parameters()) {
+            if (parameter.required() && isMissing(arguments.get(parameter.name()))) {
+                missing.add(parameter.location().name().toLowerCase(Locale.ROOT) + " parameter: " + parameter.name());
+            }
+        }
+        if (operation.requestBodyRequired() && isMissing(arguments.get("body"))) {
+            missing.add("request body: body");
+        }
+        if (!missing.isEmpty()) {
+            return "Missing required argument(s): " + String.join(", ", missing);
+        }
+        return null;
+    }
+
+    private boolean isMissing(Object value) {
+        if (value == null) {
+            return true;
+        }
+        if (value instanceof String stringValue) {
+            return !StringUtils.hasText(stringValue);
+        }
+        return false;
     }
 
     private Object resolveRequestBody(OpenApiOperationDescriptor operation, Map<String, Object> arguments) {
@@ -433,6 +493,9 @@ public class SwaggerMcpServerAdapter {
             String placeholder = "{" + parameter.name() + "}";
             String encodedValue = UriUtils.encodePathSegment(String.valueOf(value), StandardCharsets.UTF_8);
             resolvedPath = resolvedPath.replace(placeholder, encodedValue);
+        }
+        if (resolvedPath.contains("{") || resolvedPath.contains("}")) {
+            throw new IllegalArgumentException("Unresolved path template for " + operation.toolName() + ": " + resolvedPath);
         }
         return resolvedPath;
     }

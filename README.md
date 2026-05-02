@@ -13,7 +13,9 @@ Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as M
 - Auto-discovery of OpenAPI operations from your running Spring app
 - Auto-registration of MCP tools for discovered API operations
 - Smart-context tools: `meta_discover_api_tools`, `meta_invoke_api_by_intent`
+- Rich MCP input schemas from OpenAPI constraints (required fields, enum, numeric/string/array/object limits, examples, deprecation hints)
 - Response optimization with projection/summarization controls
+- Execution guardrails: required argument validation, unresolved path-template protection, and safe `_headers` filtering
 - Risk controls for dangerous operations (`_confirm`, blocked paths, role checks, audit logs)
 
 ## Architecture
@@ -153,9 +155,11 @@ If the artifact is not published to a remote registry yet:
 - `swagger.mcp.api-docs-path`: OpenAPI docs path (default `/v3/api-docs`)
 - `swagger.mcp.tool-name-prefix`: tool name prefix (default `api_`)
 - `swagger.mcp.smart-context.gateway-only`: expose only meta tools
+- `swagger.mcp.execution.allowed-argument-headers`: optional allowlist for dynamic `_headers` passed by MCP clients
+- `swagger.mcp.execution.blocked-argument-headers`: denylist for dynamic `_headers`; defaults block hop-by-hop/transport-sensitive headers like `Host`, `Content-Length`, `Connection`, and `Transfer-Encoding`
 - `swagger.mcp.security.require-confirmation-for-risky-operations`: require `_confirm` token for risky methods
 
-For risky HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`), default policy requires `_confirm=CONFIRM`.
+For risky HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`), default policy requires `_confirm=CONFIRM`. The adapter also validates missing required path/query/header/body arguments before dispatching HTTP, so MCP clients get a clear tool error instead of a malformed API call.
 
 ## Compatibility Matrix
 
