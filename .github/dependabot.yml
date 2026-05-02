@@ -5,10 +5,29 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    groups:
+      spring-boot-35-compatible:
+        patterns:
+          - "org.springframework.boot"
+          - "org.springdoc:*"
+          - "org.springframework.ai:*"
+    ignore:
+      # The 0.1.x line is pinned to Spring Boot 3.5.x / springdoc 2.8.x.
+      # Major-line moves need a deliberate compatibility branch and migration tests.
+      - dependency-name: "org.springframework.boot"
+        versions: ["4.x"]
+      - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-api"
+        versions: ["3.x"]
+      - dependency-name: "org.springframework.ai:spring-ai-bom"
+        versions: ["2.x"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 

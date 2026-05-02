@@ -4,6 +4,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Awesome MCP Servers](https://img.shields.io/badge/awesome--mcp--servers-listed-blueviolet.svg)](https://github.com/punkpeye/awesome-mcp-servers/pull/2059)
 
 Spring Boot starter that automatically exposes SpringDoc OpenAPI operations as MCP tools.
 
@@ -56,7 +57,7 @@ repositories {
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.3")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.17")
     implementation("io.github.neo1228:spring-boot-starter-swagger-mcp:<version>")
 }
 ```
@@ -76,7 +77,7 @@ Maven (`pom.xml`):
   <dependency>
     <groupId>org.springdoc</groupId>
     <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
-    <version>2.8.3</version>
+    <version>2.8.17</version>
   </dependency>
   <dependency>
     <groupId>io.github.neo1228</groupId>
@@ -160,9 +161,9 @@ For risky HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`), default policy requir
 
 | Starter | Java | Spring Boot | springdoc-openapi | Spring AI BOM |
 |---|---|---|---|---|
-| 0.1.x | 17+ | 3.5.x | 2.8.3 | 1.1.2 |
+| 0.1.x | 17+ | 3.5.x | 2.8.17 | 1.1.5 |
 
-Spring Boot 4.x is not supported in this repository.
+Spring Boot 4.x is intentionally not supported in the 0.1.x line. Stay on Spring Boot 3.5.x with springdoc-openapi 2.8.x unless this repository cuts a new major/minor compatibility line.
 
 ## Example Consumer Project
 
