@@ -19,7 +19,7 @@ The official registry hosts metadata only; the runnable artifact must already be
 
 Required metadata is in `registry/server.json`:
 
-- `name`: `io.github.neo1228/swagger-mcp-bridge`
+- `name`: `io.github.Neo1228/swagger-mcp-bridge`
 - package type: `oci`
 - image: `ghcr.io/neo1228/swagger-mcp-bridge-example:<version>`
 - transport: Streamable HTTP at `http://localhost:8080/mcp`
@@ -28,7 +28,7 @@ Required metadata is in `registry/server.json`:
 The Docker image carries the ownership verification label required by the registry:
 
 ```text
-io.modelcontextprotocol.server.name=io.github.neo1228/swagger-mcp-bridge
+io.modelcontextprotocol.server.name=io.github.Neo1228/swagger-mcp-bridge
 ```
 
 Before publishing, verify metadata and public image reachability:

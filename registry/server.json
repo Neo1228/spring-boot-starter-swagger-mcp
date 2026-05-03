@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.neo1228/swagger-mcp-bridge",
+  "name": "io.github.Neo1228/swagger-mcp-bridge",
   "title": "Swagger MCP Bridge",
   "description": "Spring Boot example that exposes SpringDoc OpenAPI operations as safe MCP tools.",
   "repository": {

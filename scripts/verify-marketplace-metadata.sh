@@ -49,7 +49,7 @@ if len(server.get("description", "")) > 100:
 if server["$schema"] != "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json":
     raise SystemExit("server.json schema URL is not the current pinned registry schema")
 
-if not server["name"].startswith("io.github.neo1228/"):
+if not server["name"].startswith("io.github.Neo1228/"):
     raise SystemExit("server name must stay under the GitHub-authenticated io.github.neo1228 namespace")
 
 repository = server.get("repository", {})

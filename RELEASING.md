@@ -109,7 +109,7 @@ Use `Publish Example MCP Server` from GitHub Actions or push a `v*` tag. The wor
 The image includes the MCP Registry ownership label:
 
 ```text
-io.modelcontextprotocol.server.name=io.github.neo1228/swagger-mcp-bridge
+io.modelcontextprotocol.server.name=io.github.Neo1228/swagger-mcp-bridge
 ```
 
 ## Publish MCP Registry Metadata
@@ -138,7 +138,7 @@ mcp-publisher publish
    - signatures/checksums
 3. Validate install in a clean consumer Spring Boot project.
 4. Pull the GHCR example image and run the manual smoke checks above.
-5. If published, verify MCP Registry search returns `io.github.neo1228/swagger-mcp-bridge`.
+5. If published, verify MCP Registry search returns `io.github.Neo1228/swagger-mcp-bridge`.
 6. Submit Smithery only after the example server is reachable from a public HTTPS URL; see `docs/marketplace-readiness.md`.
 7. Submit MCP Find through its `community-servers.yml` PR path once the target GitHub repository is reachable.
 

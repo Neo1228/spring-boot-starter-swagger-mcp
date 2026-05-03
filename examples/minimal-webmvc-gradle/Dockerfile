@@ -14,7 +14,7 @@ LABEL org.opencontainers.image.title="Swagger MCP Bridge Example Server" \
       org.opencontainers.image.description="Runnable Spring Boot WebMVC example exposing SpringDoc OpenAPI operations as MCP tools." \
       org.opencontainers.image.source="https://github.com/Neo1228/spring-boot-starter-swagger-mcp" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      io.modelcontextprotocol.server.name="io.github.neo1228/swagger-mcp-bridge"
+      io.modelcontextprotocol.server.name="io.github.Neo1228/swagger-mcp-bridge"
 
 WORKDIR /app
 COPY --from=builder /workspace/examples/minimal-webmvc-gradle/build/libs/*.jar /app/swagger-mcp-bridge-example.jar

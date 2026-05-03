@@ -305,7 +305,7 @@ Manual smoke checks after startup:
 - Metadata verification script: `scripts/verify-marketplace-metadata.sh`
 - Central bundle helper: `scripts/build-central-bundle.sh`
 
-The official MCP Registry accepts Docker/OCI metadata, so the published example image carries the required `io.modelcontextprotocol.server.name=io.github.neo1228/swagger-mcp-bridge` label and uses `registry/server.json` as the submission source. The starter artifact remains a normal Maven dependency with coordinates `io.github.neo1228:spring-boot-starter-swagger-mcp`. Smithery URL publishing is compatible once the example server is hosted at a public HTTPS `/mcp` endpoint; until then the repository provides the required static server-card and local/Uplink validation path.
+The official MCP Registry accepts Docker/OCI metadata, so the published example image carries the required `io.modelcontextprotocol.server.name=io.github.Neo1228/swagger-mcp-bridge` label and uses `registry/server.json` as the submission source. The starter artifact remains a normal Maven dependency with coordinates `io.github.neo1228:spring-boot-starter-swagger-mcp`. Smithery URL publishing is compatible once the example server is hosted at a public HTTPS `/mcp` endpoint; until then the repository provides the required static server-card and local/Uplink validation path.
 
 ## Release And Versioning
 

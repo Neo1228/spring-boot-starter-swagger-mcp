@@ -62,7 +62,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=Swagger MCP Bridge Example Server
             org.opencontainers.image.source=https://github.com/Neo1228/spring-boot-starter-swagger-mcp
-            io.modelcontextprotocol.server.name=io.github.neo1228/swagger-mcp-bridge
+            io.modelcontextprotocol.server.name=io.github.Neo1228/swagger-mcp-bridge
 
       - name: Render server.json version
         run: |
