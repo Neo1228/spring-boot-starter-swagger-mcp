@@ -8,11 +8,16 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Added
 
+- Maven Central Portal release bundle workflow and helper script
+- GHCR-publishable runnable WebMVC example server image
+- MCP Registry `server.json` metadata for the example server
 - Versioning policy document (`VERSIONING.md`)
 - Minimal consumer sample project (`examples/minimal-webmvc-gradle`)
 
 ### Changed
 
+- Release documentation now covers Maven Central, GHCR, and MCP Registry publishing readiness
+- GitHub Packages publishing is separated from Maven Central tag releases
 - Updated the Spring Boot 3.5 compatibility line to Spring Boot 3.5.14, springdoc-openapi 2.8.17, and Spring AI BOM 1.1.5
 - Updated Gradle wrapper to 9.5.0 and GitHub Actions release/setup actions
 - Dependabot now groups routine updates and ignores Spring Boot 4 / springdoc 3 / Spring AI 2 major-line moves for the 0.1.x compatibility line

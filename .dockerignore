@@ -1,0 +1,13 @@
+.git
+.github
+.omx
+.gradle
+.gradle-user
+build
+**/.gradle
+**/build
+**/out
+.idea
+.vscode
+*.iml
+.DS_Store

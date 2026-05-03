@@ -1,0 +1,95 @@
+name: Release to Maven Central
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 0.1.0"
+        required: true
+      publishingType:
+        description: "Central Portal publishing type"
+        required: true
+        default: "USER_MANAGED"
+        type: choice
+        options:
+          - USER_MANAGED
+          - AUTOMATIC
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  central:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $VERSION" >&2
+            exit 1
+          fi
+          echo "project_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify changelog entry
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.project_version }}"
+          if ! grep -Eq "^## \\[$VERSION\\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
+            echo "CHANGELOG.md is missing a release header for $VERSION" >&2
+            exit 1
+          fi
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew scripts/build-central-bundle.sh
+
+      - name: Build signed Central bundle
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: scripts/build-central-bundle.sh "${{ steps.version.outputs.project_version }}"
+
+      - name: Upload bundle to Central Portal
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          PUBLISHING_TYPE: ${{ github.event.inputs.publishingType || 'USER_MANAGED' }}
+        shell: bash
+        run: |
+          if [[ -z "$CENTRAL_USERNAME" || -z "$CENTRAL_PASSWORD" ]]; then
+            echo "CENTRAL_USERNAME and CENTRAL_PASSWORD secrets are required" >&2
+            exit 1
+          fi
+          TOKEN="$(printf '%s:%s' "$CENTRAL_USERNAME" "$CENTRAL_PASSWORD" | base64 | tr -d '\n')"
+          VERSION="${{ steps.version.outputs.project_version }}"
+          curl --fail-with-body --request POST \
+            --header "Authorization: Bearer $TOKEN" \
+            --form "bundle=@build/central-bundle.zip" \
+            "https://central.sonatype.com/api/v1/publisher/upload?name=swagger-mcp-bridge-$VERSION&publishingType=$PUBLISHING_TYPE"
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true

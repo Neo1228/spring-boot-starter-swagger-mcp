@@ -271,6 +271,32 @@ Spring Boot 4.x is intentionally not supported in the 0.1.x line. Stay on Spring
 
 See `examples/minimal-webmvc-gradle` for a minimal Spring Boot app using Swagger MCP Bridge.
 
+The example can also be built as a runnable MCP server image for registry and marketplace submissions:
+
+```bash
+docker build \
+  -f examples/minimal-webmvc-gradle/Dockerfile \
+  -t ghcr.io/neo1228/swagger-mcp-bridge-example:local \
+  .
+
+docker run --rm -p 8080:8080 ghcr.io/neo1228/swagger-mcp-bridge-example:local
+```
+
+Manual smoke checks after startup:
+
+- OpenAPI: `http://localhost:8080/v3/api-docs`
+- sample API: `http://localhost:8080/hello?name=Bridge`
+- MCP Streamable HTTP endpoint: `http://localhost:8080/mcp`
+
+## Registry And Release Readiness
+
+- Maven Central release bundle workflow: `.github/workflows/release-central.yml`
+- GHCR example-server image workflow: `.github/workflows/publish-example-server.yml`
+- MCP Registry metadata: `registry/server.json`
+- Central bundle helper: `scripts/build-central-bundle.sh`
+
+The official MCP Registry currently accepts Docker/OCI metadata, so the published example image carries the required `io.modelcontextprotocol.server.name=io.github.neo1228/swagger-mcp-bridge` label and uses `registry/server.json` as the submission source. The starter artifact remains a normal Maven dependency with coordinates `io.github.neo1228:spring-boot-starter-swagger-mcp`.
+
 ## Release And Versioning
 
 - Release process: `RELEASING.md`

@@ -75,6 +75,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 tasks.named<Jar>("jar") {
     enabled = true
+    archiveClassifier.set("")
 }
 
 val ossrhUsername = providers.environmentVariable("OSSRH_USERNAME")
@@ -89,6 +90,8 @@ val githubPackagesUser = providers.environmentVariable("GITHUB_ACTOR")
 val githubPackagesToken = providers.environmentVariable("GITHUB_TOKEN")
     .orElse(providers.gradleProperty("gpr.key"))
     .orNull
+
+val centralBundleRepository = layout.buildDirectory.dir("central-staging")
 
 publishing {
     publications {
@@ -127,6 +130,11 @@ publishing {
     }
 
     repositories {
+        maven {
+            name = "CentralBundle"
+            url = centralBundleRepository.get().asFile.toURI()
+        }
+
         if (!ossrhUsername.isNullOrBlank() && !ossrhPassword.isNullOrBlank()) {
             maven {
                 name = "OSSRH"
@@ -170,4 +178,11 @@ signing {
         useInMemoryPgpKeys(signingKey, signingPassword)
         sign(publishing.publications["mavenJava"])
     }
+}
+
+tasks.register<Zip>("centralBundleZip") {
+    dependsOn("publishMavenJavaPublicationToCentralBundleRepository")
+    archiveFileName.set("central-bundle.zip")
+    destinationDirectory.set(layout.buildDirectory)
+    from(centralBundleRepository)
 }
