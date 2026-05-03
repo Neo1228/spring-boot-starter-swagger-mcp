@@ -72,15 +72,21 @@ repositories {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.17")
-    implementation("io.github.neo1228:spring-boot-starter-swagger-mcp:<version>")
+    implementation("io.github.neo1228:openapi-mcp-spring-boot-starter:<version>")
 }
+```
+
+The Maven artifact intentionally uses the neutral OpenAPI name rather than Swagger branding:
+
+```text
+io.github.neo1228:openapi-mcp-spring-boot-starter
 ```
 
 Maven (`pom.xml`):
 
 ```xml
 <properties>
-  <swagger-mcp.version>0.1.0-SNAPSHOT</swagger-mcp.version>
+  <openapi-mcp.version>0.1.0-SNAPSHOT</openapi-mcp.version>
 </properties>
 
 <dependencies>
@@ -95,8 +101,8 @@ Maven (`pom.xml`):
   </dependency>
   <dependency>
     <groupId>io.github.neo1228</groupId>
-    <artifactId>spring-boot-starter-swagger-mcp</artifactId>
-    <version>${swagger-mcp.version}</version>
+    <artifactId>openapi-mcp-spring-boot-starter</artifactId>
+    <version>${openapi-mcp.version}</version>
   </dependency>
 </dependencies>
 ```
@@ -305,7 +311,7 @@ Manual smoke checks after startup:
 - Metadata verification script: `scripts/verify-marketplace-metadata.sh`
 - Central bundle helper: `scripts/build-central-bundle.sh`
 
-The official MCP Registry accepts Docker/OCI metadata, so the published example image carries the required `io.modelcontextprotocol.server.name=io.github.Neo1228/swagger-mcp-bridge` label and uses `registry/server.json` as the submission source. The starter artifact remains a normal Maven dependency with coordinates `io.github.neo1228:spring-boot-starter-swagger-mcp`. Smithery URL publishing is compatible once the example server is hosted at a public HTTPS `/mcp` endpoint; until then the repository provides the required static server-card and local/Uplink validation path.
+The official MCP Registry accepts Docker/OCI metadata, so the published example image carries the required `io.modelcontextprotocol.server.name=io.github.Neo1228/swagger-mcp-bridge` label and uses `registry/server.json` as the submission source. The starter artifact remains a normal Maven dependency with coordinates `io.github.neo1228:openapi-mcp-spring-boot-starter`. Smithery URL publishing is compatible once the example server is hosted at a public HTTPS `/mcp` endpoint; until then the repository provides the required static server-card and local/Uplink validation path.
 
 ## Release And Versioning
 

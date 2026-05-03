@@ -12,7 +12,7 @@ java {
     sourceCompatibility = JavaVersion.VERSION_17
 }
 
-val swaggerMcpVersion = "0.1.0-SNAPSHOT"
+val openApiMcpVersion = "0.1.0-SNAPSHOT"
 
 repositories {
     mavenLocal()
@@ -28,7 +28,7 @@ dependencyManagement {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.17")
-    implementation("io.github.neo1228:spring-boot-starter-swagger-mcp:$swaggerMcpVersion")
+    implementation("io.github.neo1228:openapi-mcp-spring-boot-starter:$openApiMcpVersion")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 

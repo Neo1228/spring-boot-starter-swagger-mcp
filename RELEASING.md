@@ -1,6 +1,6 @@
 # Releasing Swagger MCP Bridge
 
-This document describes how to publish Swagger MCP Bridge as a Maven dependency and how to publish the runnable example server for MCP directories and registries.
+This document describes how to publish OpenAPI MCP Spring Boot Starter as a Maven dependency and how to publish the runnable example server for MCP directories and registries.
 
 ## Required GitHub Secrets
 
@@ -44,7 +44,7 @@ cd examples/minimal-webmvc-gradle && ./gradlew test
 Validate coordinates in local Maven cache:
 
 - Group: `io.github.neo1228`
-- Artifact: `spring-boot-starter-swagger-mcp`
+- Artifact: `openapi-mcp-spring-boot-starter`
 - Version: `0.1.0` (or chosen version)
 
 Build the Central Portal bundle locally:

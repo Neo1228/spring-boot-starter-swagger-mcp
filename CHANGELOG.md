@@ -23,6 +23,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Changed
 
+- Maven artifactId renamed to `openapi-mcp-spring-boot-starter` for clearer OpenAPI/Spring Boot starter positioning
 - Release documentation now covers Maven Central, GHCR, and MCP Registry publishing readiness
 - GitHub Packages publishing is separated from Maven Central tag releases
 - Updated the Spring Boot 3.5 compatibility line to Spring Boot 3.5.14, springdoc-openapi 2.8.17, and Spring AI BOM 1.1.5

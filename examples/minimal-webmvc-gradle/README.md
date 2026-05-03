@@ -3,7 +3,7 @@
 A tiny Spring Boot WebMVC consumer for **Swagger MCP Bridge**.
 
 It installs the starter from this repository into `mavenLocal()`, loads the unchanged consumer coordinates
-`io.github.neo1228:spring-boot-starter-swagger-mcp:0.1.0-SNAPSHOT`, and exposes SpringDoc OpenAPI operations as MCP tools.
+`io.github.neo1228:openapi-mcp-spring-boot-starter:0.1.0-SNAPSHOT`, and exposes SpringDoc OpenAPI operations as MCP tools.
 
 ## What this example proves
 
@@ -30,7 +30,7 @@ From the repository root:
 This publishes the current snapshot to your local Maven cache:
 
 ```text
-io.github.neo1228:spring-boot-starter-swagger-mcp:0.1.0-SNAPSHOT
+io.github.neo1228:openapi-mcp-spring-boot-starter:0.1.0-SNAPSHOT
 ```
 
 ## Run the example
