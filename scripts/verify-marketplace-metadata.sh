@@ -43,6 +43,9 @@ missing = [key for key in required if not server.get(key)]
 if missing:
     raise SystemExit(f"server.json missing required metadata: {missing}")
 
+if len(server.get("description", "")) > 100:
+    raise SystemExit("server.json description must be 100 characters or less for the official publisher")
+
 if server["$schema"] != "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json":
     raise SystemExit("server.json schema URL is not the current pinned registry schema")
 
