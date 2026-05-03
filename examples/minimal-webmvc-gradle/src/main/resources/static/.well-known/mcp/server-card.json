@@ -1,0 +1,86 @@
+{
+  "serverInfo": {
+    "name": "Swagger MCP Bridge Example",
+    "version": "0.1.0"
+  },
+  "authentication": {
+    "required": false,
+    "schemes": []
+  },
+  "tools": [
+    {
+      "name": "api_gethello",
+      "description": "Get greeting message from the minimal Spring Boot WebMVC example.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "default": "world"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "api_meta_discover_api_tools",
+      "description": "Find relevant generated API tools for a natural-language intent.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "topK": {
+            "type": "integer"
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "api_meta_invoke_api_workflow",
+      "description": "Dry-run or execute sequential generated API tool calls with JSONPath interpolation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean"
+          },
+          "continueOnError": {
+            "type": "boolean"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "toolName": {
+                  "type": "string"
+                },
+                "arguments": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "continueOnError": {
+                  "type": "boolean"
+                }
+              },
+              "required": ["toolName"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["steps"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "resources": [],
+  "prompts": []
+}

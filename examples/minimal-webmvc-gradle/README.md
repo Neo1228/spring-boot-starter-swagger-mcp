@@ -63,3 +63,7 @@ Keep this example in sync whenever the root project changes:
 - Spring Boot / SpringDoc / Spring AI compatibility line
 - MCP endpoint defaults or property names
 - public project name and README branding
+
+## Static server card
+
+The example exposes a static server card for marketplace scanners at `/.well-known/mcp/server-card.json`.

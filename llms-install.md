@@ -51,3 +51,7 @@ http://localhost:8080/mcp
 ## What the example demonstrates
 
 The bundled controller exposes `GET /hello`, SpringDoc publishes it through `/v3/api-docs`, and Swagger MCP Bridge registers it as an MCP tool named `api_gethello`. The bridge also registers meta tools for discovery, validation, workflow planning, and workflow execution.
+
+## Static server card
+
+The example exposes a static server card for marketplace scanners at `/.well-known/mcp/server-card.json`.
