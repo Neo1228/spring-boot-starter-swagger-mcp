@@ -23,13 +23,14 @@ The workflows use the repository `GITHUB_TOKEN` for GitHub Packages and GitHub C
 ## Pre-Release Checklist
 
 1. `master` CI is green.
-2. `CHANGELOG.md` has a dated entry for the target version (`## [x.y.z] - YYYY-MM-DD`).
-3. Target version follows Semantic Versioning (`x.y.z` optionally with prerelease suffix).
-4. README usage snippets still match current behavior and defaults.
-5. `registry/server.json` matches the intended public server name, image coordinates, Docker runtime hint, and Streamable HTTP transport URL.
-6. Static discovery metadata under `examples/minimal-webmvc-gradle/src/main/resources/static/.well-known/mcp/` is synchronized.
-7. `scripts/verify-marketplace-metadata.sh` passes and confirms the GHCR image manifest is publicly reachable.
-8. The example server builds and starts locally.
+2. `scripts/verify-project-consistency.sh` passes for the Maven coordinate, Registry name, GHCR image, and static metadata.
+3. `CHANGELOG.md` has a dated entry for the target version (`## [x.y.z] - YYYY-MM-DD`).
+4. Target version follows Semantic Versioning (`x.y.z` optionally with prerelease suffix).
+5. README usage snippets still match current behavior and defaults.
+6. `registry/server.json` matches the intended public server name, image coordinates, Docker runtime hint, and Streamable HTTP transport URL.
+7. Static discovery metadata under `examples/minimal-webmvc-gradle/src/main/resources/static/.well-known/mcp/` is synchronized.
+8. `scripts/verify-marketplace-metadata.sh` passes and confirms the GHCR image manifest is publicly reachable.
+9. The example server builds and starts locally.
 
 ## Local Dry Run
 
@@ -37,6 +38,8 @@ Run before tagging:
 
 ```bash
 ./gradlew clean test
+scripts/verify-project-consistency.sh
+scripts/verify-marketplace-metadata.sh
 ./gradlew -PprojectVersion=0.1.0 publishToMavenLocal
 cd examples/minimal-webmvc-gradle && ./gradlew test
 ```

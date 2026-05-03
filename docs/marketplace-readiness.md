@@ -2,6 +2,18 @@
 
 Swagger MCP Bridge is a Spring Boot starter plus a packaged runnable example MCP server. Use this page when reviewing or submitting the project to MCP directories.
 
+
+## Naming and coordinate policy
+
+| Surface | Name |
+|---|---|
+| Project / docs | Swagger MCP Bridge |
+| Maven dependency | `io.github.neo1228:openapi-mcp-spring-boot-starter` |
+| Official MCP Registry server | `io.github.Neo1228/swagger-mcp-bridge` |
+| Runnable example image | `ghcr.io/neo1228/swagger-mcp-bridge-example:<version>` |
+
+Keep these names synchronized with `scripts/verify-project-consistency.sh`. The Maven artifact is the reusable Spring Boot starter; the MCP Registry entry is the runnable example server package.
+
 ## Public package surfaces
 
 | Surface | Status | Evidence |

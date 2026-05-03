@@ -10,6 +10,21 @@
 
 Swagger MCP Bridge discovers your OpenAPI operations, publishes them as safe MCP tools, and adds a smart gateway layer for API discovery, validation, response shaping, and multi-step workflow orchestration.
 
+
+## Naming and Coordinates
+
+This repository intentionally separates the public surfaces so each one reads naturally in its own ecosystem:
+
+| Surface | Name |
+|---|---|
+| Project / docs | Swagger MCP Bridge |
+| Maven dependency | `io.github.neo1228:openapi-mcp-spring-boot-starter` |
+| Official MCP Registry server | `io.github.Neo1228/swagger-mcp-bridge` |
+| Runnable example image | `ghcr.io/neo1228/swagger-mcp-bridge-example:<version>` |
+| Spring configuration prefix | `swagger.mcp.*` |
+
+The project name keeps the established bridge branding, while the Maven artifact uses the neutral OpenAPI/Spring Boot starter coordinate expected by Java consumers. The registry server and GHCR image identify the packaged runnable example used by MCP directories.
+
 ## Why Swagger MCP Bridge
 
 Most MCP API bridges stop at a thin tool wrapper. Swagger MCP Bridge is designed as a runtime gateway: it exposes your existing Spring controllers to LLM clients while preserving contracts, guardrails, and operational visibility.

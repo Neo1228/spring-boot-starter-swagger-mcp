@@ -8,6 +8,8 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Added
 
+- CI now validates the example consumer against the locally published Maven artifact on Java 17
+- Added project consistency verification for Maven coordinates, Registry metadata, GHCR labels, and static discovery files
 - Maven Central Portal release bundle workflow and helper script
 - GHCR-publishable runnable WebMVC example server image
 - MCP Registry `server.json` metadata for the example server
