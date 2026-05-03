@@ -14,6 +14,10 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Agent-focused `llms-install.md` for MCP marketplace installation checks
 - 400x400 PNG project logo for MCP marketplace submissions
 - Static MCP server card in the minimal WebMVC example for marketplace scanners
+- Official MCP Registry metadata now includes local Streamable HTTP transport URL and Docker runtime hints for the GHCR example image
+- Static `/.well-known/mcp/server.json` is served by the minimal example alongside the Smithery-compatible server card
+- Marketplace metadata verification script for registry JSON, static discovery files, and public GHCR manifest reachability
+- Marketplace readiness guide covering Official MCP Registry, Smithery, and MCP Find submission order
 - Versioning policy document (`VERSIONING.md`)
 - Minimal consumer sample project (`examples/minimal-webmvc-gradle`)
 

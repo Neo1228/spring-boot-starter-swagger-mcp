@@ -11,6 +11,7 @@ It installs the starter from this repository into `mavenLocal()`, loads the unch
 - SpringDoc's `/v3/api-docs` document is converted into MCP tool metadata at startup.
 - The generated MCP endpoint stays on the standard streamable HTTP path: `/mcp`.
 - Tool names keep the configured `api_` prefix, so `getHello` becomes `api_gethello`.
+- Static marketplace metadata is served from `/.well-known/mcp/` for Smithery and registry-style scanners.
 
 ## Requirements
 
@@ -47,7 +48,9 @@ After the application starts on `localhost:8080`:
 1. OpenAPI document: <http://localhost:8080/v3/api-docs>
 2. Sample API operation: <http://localhost:8080/hello?name=Bridge>
 3. MCP streamable HTTP endpoint: <http://localhost:8080/mcp>
-4. Expected generated tool name: `api_gethello`
+4. Smithery/static server card: <http://localhost:8080/.well-known/mcp/server-card.json>
+5. MCP Registry server metadata: <http://localhost:8080/.well-known/mcp/server.json>
+6. Expected generated tool name: `api_gethello`
 
 ## Key files
 
@@ -64,6 +67,11 @@ Keep this example in sync whenever the root project changes:
 - MCP endpoint defaults or property names
 - public project name and README branding
 
-## Static server card
+## Static marketplace metadata
 
-The example exposes a static server card for marketplace scanners at `/.well-known/mcp/server-card.json`.
+The example exposes static marketplace metadata for scanners and submission review:
+
+- `/.well-known/mcp/server-card.json` — Smithery-compatible capability card.
+- `/.well-known/mcp/server.json` — same server metadata as `registry/server.json`.
+
+Run `../../scripts/verify-marketplace-metadata.sh` from this directory's parent repository to check JSON validity, metadata synchronization, and public GHCR image reachability.

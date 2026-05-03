@@ -55,3 +55,16 @@ The bundled controller exposes `GET /hello`, SpringDoc publishes it through `/v3
 ## Static server card
 
 The example exposes a static server card for marketplace scanners at `/.well-known/mcp/server-card.json`.
+
+## Marketplace metadata
+
+After starting the example server, discovery metadata is available at:
+
+- `http://localhost:8080/.well-known/mcp/server-card.json`
+- `http://localhost:8080/.well-known/mcp/server.json`
+
+Maintainers can verify registry/marketplace readiness with:
+
+```bash
+scripts/verify-marketplace-metadata.sh
+```

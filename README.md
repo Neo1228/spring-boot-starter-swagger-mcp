@@ -287,10 +287,13 @@ Manual smoke checks after startup:
 - OpenAPI: `http://localhost:8080/v3/api-docs`
 - sample API: `http://localhost:8080/hello?name=Bridge`
 - MCP Streamable HTTP endpoint: `http://localhost:8080/mcp`
+- Smithery/server-card metadata: `http://localhost:8080/.well-known/mcp/server-card.json`
+- MCP Registry server metadata: `http://localhost:8080/.well-known/mcp/server.json`
 
 ## Agent / Marketplace Install Guide
 
 - Agent install instructions: `llms-install.md`
+- Marketplace readiness guide: `docs/marketplace-readiness.md`
 - Marketplace logo: `docs/assets/swagger-mcp-bridge-logo.png`
 
 ## Registry And Release Readiness
@@ -298,9 +301,11 @@ Manual smoke checks after startup:
 - Maven Central release bundle workflow: `.github/workflows/release-central.yml`
 - GHCR example-server image workflow: `.github/workflows/publish-example-server.yml`
 - MCP Registry metadata: `registry/server.json`
+- Static discovery metadata: `examples/minimal-webmvc-gradle/src/main/resources/static/.well-known/mcp/`
+- Metadata verification script: `scripts/verify-marketplace-metadata.sh`
 - Central bundle helper: `scripts/build-central-bundle.sh`
 
-The official MCP Registry currently accepts Docker/OCI metadata, so the published example image carries the required `io.modelcontextprotocol.server.name=io.github.neo1228/swagger-mcp-bridge` label and uses `registry/server.json` as the submission source. The starter artifact remains a normal Maven dependency with coordinates `io.github.neo1228:spring-boot-starter-swagger-mcp`.
+The official MCP Registry accepts Docker/OCI metadata, so the published example image carries the required `io.modelcontextprotocol.server.name=io.github.neo1228/swagger-mcp-bridge` label and uses `registry/server.json` as the submission source. The starter artifact remains a normal Maven dependency with coordinates `io.github.neo1228:spring-boot-starter-swagger-mcp`. Smithery URL publishing is compatible once the example server is hosted at a public HTTPS `/mcp` endpoint; until then the repository provides the required static server-card and local/Uplink validation path.
 
 ## Release And Versioning
 

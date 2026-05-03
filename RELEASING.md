@@ -26,8 +26,10 @@ The workflows use the repository `GITHUB_TOKEN` for GitHub Packages and GitHub C
 2. `CHANGELOG.md` has a dated entry for the target version (`## [x.y.z] - YYYY-MM-DD`).
 3. Target version follows Semantic Versioning (`x.y.z` optionally with prerelease suffix).
 4. README usage snippets still match current behavior and defaults.
-5. `registry/server.json` matches the intended public server name and image coordinates.
-6. The example server builds and starts locally.
+5. `registry/server.json` matches the intended public server name, image coordinates, Docker runtime hint, and Streamable HTTP transport URL.
+6. Static discovery metadata under `examples/minimal-webmvc-gradle/src/main/resources/static/.well-known/mcp/` is synchronized.
+7. `scripts/verify-marketplace-metadata.sh` passes and confirms the GHCR image manifest is publicly reachable.
+8. The example server builds and starts locally.
 
 ## Local Dry Run
 
@@ -68,6 +70,8 @@ Manual smoke checks after startup:
 - `http://localhost:8080/v3/api-docs`
 - `http://localhost:8080/hello?name=Bridge`
 - `http://localhost:8080/mcp`
+- `http://localhost:8080/.well-known/mcp/server-card.json`
+- `http://localhost:8080/.well-known/mcp/server.json`
 
 ## Publish Maven Central
 
@@ -117,6 +121,7 @@ For a registry publish from GitHub Actions, run `Publish Example MCP Server` wit
 For a manual publish:
 
 ```bash
+scripts/verify-marketplace-metadata.sh
 cd registry
 mcp-publisher login github
 mcp-publisher publish
@@ -134,6 +139,8 @@ mcp-publisher publish
 3. Validate install in a clean consumer Spring Boot project.
 4. Pull the GHCR example image and run the manual smoke checks above.
 5. If published, verify MCP Registry search returns `io.github.neo1228/swagger-mcp-bridge`.
+6. Submit Smithery only after the example server is reachable from a public HTTPS URL; see `docs/marketplace-readiness.md`.
+7. Submit MCP Find through its `community-servers.yml` PR path once the target GitHub repository is reachable.
 
 ## Snapshot Publishing
 
