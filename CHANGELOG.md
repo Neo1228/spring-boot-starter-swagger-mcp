@@ -11,6 +11,8 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Maven Central Portal release bundle workflow and helper script
 - GHCR-publishable runnable WebMVC example server image
 - MCP Registry `server.json` metadata for the example server
+- Agent-focused `llms-install.md` for MCP marketplace installation checks
+- 400x400 PNG project logo for MCP marketplace submissions
 - Versioning policy document (`VERSIONING.md`)
 - Minimal consumer sample project (`examples/minimal-webmvc-gradle`)
 

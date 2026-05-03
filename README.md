@@ -288,6 +288,11 @@ Manual smoke checks after startup:
 - sample API: `http://localhost:8080/hello?name=Bridge`
 - MCP Streamable HTTP endpoint: `http://localhost:8080/mcp`
 
+## Agent / Marketplace Install Guide
+
+- Agent install instructions: `llms-install.md`
+- Marketplace logo: `docs/assets/swagger-mcp-bridge-logo.png`
+
 ## Registry And Release Readiness
 
 - Maven Central release bundle workflow: `.github/workflows/release-central.yml`
